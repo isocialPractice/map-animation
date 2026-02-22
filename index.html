@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="icon.png" rel="icon">
+  <title>Map Animation</title>
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── 60-30-10 Palette ─────────────────────────────────── */
+    :root {
+      /* 60 % — primary cool background */
+      --bg-primary: #F5F7FA;
+      --bg-gradient-start: #E6F2FF;
+      --bg-gradient-end: #F5F7FA;
+
+      /* 30 % — secondary cool surfaces */
+      --surface: #FFFFFF;
+      --surface-hover: #EAF1FA;
+      --border: #D0DCEA;
+      --border-hover: #A8C4DE;
+
+      /* 10 % — hot accent */
+      --accent: #E8652B;
+      --accent-hover: #D4561E;
+      --accent-light: rgba(232, 101, 43, 0.10);
+
+      /* Text */
+      --text-heading: #1F2328;
+      --text-body: #24292F;
+      --text-muted: #57606A;
+      --text-on-accent: #FFFFFF;
+
+      /* Misc */
+      --nav-bg: rgba(255, 255, 255, 0.85);
+      --shadow-sm: 0 1px 3px rgba(44, 95, 138, 0.08);
+      --shadow-md: 0 4px 16px rgba(44, 95, 138, 0.10);
+      --shadow-lg: 0 8px 32px rgba(44, 95, 138, 0.12);
+      --radius: 12px;
+      --radius-lg: 18px;
+      --transition: 0.25s ease;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+      color: var(--text-body);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Fixed Top Nav ────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 60px;
+      background: var(--nav-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-heading);
+    }
+
+    .nav-brand img {
+      width: 34px;
+      height: 34px;
+    }
+
+    .nav-brand span {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-heading);
+      background: var(--surface-hover);
+    }
+
+    .nav-links .nav-cta {
+      color: var(--text-on-accent);
+      background: var(--accent);
+      font-weight: 600;
+    }
+
+    .nav-links .nav-cta:hover {
+      background: var(--accent-hover);
+      color: var(--text-on-accent);
+    }
+
+    /* ── Hero Section ─────────────────────────────────────── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 120px 24px 64px;
+      max-width: 740px;
+      margin: 0 auto;
+    }
+
+    .hero-logo {
+      width: 140px;
+      height: 140px;
+      margin-bottom: 28px;
+      filter: drop-shadow(0 6px 20px rgba(44, 95, 138, 0.15));
+      animation: floatIn 0.8s ease-out;
+    }
+
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--text-heading);
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* ── Elements Grid ────────────────────────────────────── */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 960px;
+      margin: 0 auto 20px;
+      padding: 0 24px;
+      animation: fadeUp 0.6s ease-out 0.15s both;
+    }
+
+    .section-label h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.6px;
+      color: var(--text-muted);
+    }
+
+    .section-label hr {
+      flex: 1;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto 80px;
+      padding: 0 24px;
+    }
+
+    /* ── Card ─────────────────────────────────────────────── */
+    .card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
+      animation: fadeUp 0.6s ease-out 0.25s both;
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+    }
+
+    .card-preview {
+      position: relative;
+      height: 190px;
+      overflow: hidden;
+    }
+
+    .card-preview iframe {
+      width: 200%;
+      height: 200%;
+      transform: scale(0.5);
+      transform-origin: top left;
+      border: none;
+      pointer-events: none;
+    }
+
+    .card-preview-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 50%, var(--surface) 100%);
+    }
+
+    .card-body {
+      padding: 20px 24px 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 3px 10px;
+      border-radius: 6px;
+      width: fit-content;
+      margin-bottom: 10px;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-heading);
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-techs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tech-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: var(--bg-gradient-start);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .card-launch {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      transition: gap var(--transition);
+    }
+
+    .card:hover .card-launch { gap: 8px; }
+
+    .card-launch svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 32px 24px 40px;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 600px) {
+      nav { padding: 0 16px; }
+      .hero { padding: 100px 16px 48px; }
+      .hero h1 { font-size: 30px; }
+      .hero-logo { width: 100px; height: 100px; }
+      .grid { grid-template-columns: 1fr; padding: 0 16px; }
+      .nav-links .hide-mobile { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ──────────────────────────────────────── -->
+  <nav>
+    <a class="nav-brand" href="#">
+      <img src="logo.svg" alt="Map Animation logo">
+      <span>Map Animation</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#elements" class="hide-mobile">Elements</a></li>
+      <li><a href="https://github.com" target="_blank" rel="noopener" class="hide-mobile">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────── -->
+  <section class="hero">
+    <img class="hero-logo" src="logo.svg" alt="Map Animation logo">
+    <h1>Map Animation</h1>
+    <p>A collection of self-contained game-engine elements. Each folder maps keyboard and mouse controls to a playable animation. Plug compatible elements together for more grandiose gameplay.</p>
+  </section>
+
+  <!-- ── Elements Grid ───────────────────────────────────── -->
+  <div class="section-label" id="elements">
+    <h2>Elements</h2>
+    <hr>
+  </div>
+
+  <section class="grid">
+
+    <!-- Jet Engine Flame -->
+    <a class="card" href="jet-engine-flame/index.html">
+      <div class="card-preview">
+        <iframe src="jet-engine-flame/index.html" tabindex="-1" loading="lazy" sandbox="allow-scripts" title="Jet Engine Flame preview"></iframe>
+        <div class="card-preview-overlay"></div>
+      </div>
+      <div class="card-body">
+        <span class="card-tag">3D</span>
+        <h3>Jet Engine Flame</h3>
+        <p>Procedural flame animation on a 3D jet model. Orbit, zoom, and pan the camera. Edit flame transforms with a gizmo editor and export animation data as JSON.</p>
+        <div class="card-footer">
+          <div class="card-techs">
+            <span class="tech-pill">Three.js</span>
+            <span class="tech-pill">WebGL</span>
+            <span class="tech-pill">STL</span>
+          </div>
+          <span class="card-launch">Launch <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </a>
+
+    <!-- Player 2D Slide -->
+    <a class="card" href="player-2d-slide/index.html">
+      <div class="card-preview">
+        <iframe src="player-2d-slide/index.html" tabindex="-1" loading="lazy" sandbox="allow-scripts" title="Player 2D Slide preview"></iframe>
+        <div class="card-preview-overlay"></div>
+      </div>
+      <div class="card-body">
+        <span class="card-tag">2D</span>
+        <h3>Player 2D Slide</h3>
+        <p>Canvas-based platformer with a sliding player character. Includes physics, animation, and a real-time toggle panel for enabling and disabling different mechanics.</p>
+        <div class="card-footer">
+          <div class="card-techs">
+            <span class="tech-pill">Canvas</span>
+            <span class="tech-pill">Physics</span>
+          </div>
+          <span class="card-launch">Launch <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </a>
+
+  </section>
+
+  <!-- ── Footer ──────────────────────────────────────────── -->
+  <footer>
+    Map Animation &mdash; game-engine elements mapped to keyboard controls
+  </footer>
+
+</body>
+</html>

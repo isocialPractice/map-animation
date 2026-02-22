@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jet Engine Flame — Three.js Demo</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #080c18;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    canvas { display: block; }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed; top: 18px; left: 18px;
+      color: #7a9fcc; font-size: 11px; line-height: 2;
+      pointer-events: none; user-select: none;
+    }
+    #hud .key  { color: #d0dcf4; background: #1a2a44; padding: 1px 5px; border-radius: 3px; }
+    #hud .desc { color: #3a6a99; }
+    #hud .sep  { height: 1px; background: #0e1e32; margin: 4px 0; }
+    #hud .dim  { color: #2a4a66; font-size: 10px; }
+
+    /* ── Engine badge ── */
+    #badge {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px;
+      color: #ff6020; font-size: 11px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      opacity: 0; transition: opacity 0.4s; pointer-events: none; white-space: nowrap;
+    }
+    #badge.on { opacity: 1; }
+    #badge-dot {
+      width: 7px; height: 7px; background: #ff4400; border-radius: 50%;
+      box-shadow: 0 0 6px #ff6600, 0 0 14px #ff4400;
+      animation: bdPulse 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes bdPulse {
+      from { box-shadow: 0 0 5px #ff6600, 0 0 12px #ff4400; }
+      to   { box-shadow: 0 0 10px #ffaa00, 0 0 24px #ff6600; }
+    }
+
+    /* ── Export button ── */
+    #export-btn {
+      position: fixed; top: 18px; right: 18px;
+      padding: 7px 14px;
+      background: rgba(8, 18, 36, 0.88); border: 1px solid #1e3854; border-radius: 4px;
+      color: #5a90c4; font: 11px/1 'Courier New', monospace;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+      z-index: 200; user-select: none;
+    }
+    #export-btn:hover { border-color: #3a78bb; color: #99ccee; box-shadow: 0 0 14px rgba(50,110,190,0.3); }
+    #export-btn.exported { border-color: #22aa66; color: #44ddaa; box-shadow: 0 0 16px rgba(34,170,102,0.35); }
+
+    /* ── Transform toolbar ── */
+    #transform-toolbar {
+      position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 3px; padding: 6px 10px;
+      background: rgba(6, 12, 24, 0.92); border: 1px solid #152030; border-radius: 6px;
+      backdrop-filter: blur(8px); z-index: 200;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s; white-space: nowrap;
+    }
+    #transform-toolbar.visible { opacity: 1; pointer-events: all; }
+    #selected-label {
+      color: #2a5577; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      padding-right: 10px; margin-right: 3px; border-right: 1px solid #152030;
+    }
+    .mode-btn {
+      display: flex; align-items: center; gap: 5px; padding: 5px 11px;
+      background: transparent; border: 1px solid #152030; border-radius: 3px;
+      color: #3a6688; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.15s;
+    }
+    .mode-btn .icon { font-size: 12px; line-height: 1; }
+    .mode-btn .kbd  { font-size: 9px; color: #1e3a55; background: #0a1828; padding: 1px 4px; border-radius: 2px; border: 1px solid #1e3a55; }
+    .mode-btn:hover { border-color: #2a5a88; color: #6aaabb; }
+    .mode-btn.active { background: rgba(0,80,180,0.18); border-color: #0066cc; color: #33aaff; box-shadow: 0 0 8px rgba(0,100,220,0.25); }
+    .mode-btn.active .kbd { color: #0066cc; border-color: #0066cc; }
+    .t-sep { width: 1px; height: 20px; background: #152030; margin: 0 4px; }
+    #deselect-btn {
+      padding: 5px 9px; background: transparent; border: 1px solid #152030; border-radius: 3px;
+      color: #2a4455; font: 12px/1 'Courier New', monospace; cursor: pointer; transition: all 0.15s; margin-left: 3px;
+    }
+    #deselect-btn:hover { border-color: #553333; color: #aa4444; }
+
+    /* ── Live transform info ── */
+    #transform-info {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      font: 10px/1 'Courier New', monospace; color: #1e3a55; letter-spacing: 0.5px;
+      pointer-events: none; white-space: nowrap;
+    }
+    #transform-info .lbl { color: #1e5577; margin-right: 3px; }
+    #transform-info .val { color: #3a7799; }
+    #transform-info .seg { margin: 0 10px; color: #0e2030; }
+
+    /* ── Hover label ── */
+    #hover-label {
+      position: fixed; pointer-events: none;
+      padding: 3px 9px; background: rgba(4,10,22,0.88); border: 1px solid #1e3854;
+      color: #5a9acc; font: 10px/1 'Courier New', monospace; letter-spacing: 2px;
+      text-transform: uppercase; border-radius: 3px; transform: translate(-50%, -160%);
+      white-space: nowrap; opacity: 0; transition: opacity 0.15s; z-index: 150;
+    }
+    #hover-label.show { opacity: 1; }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #080c18; color: #4a7aaa; font-size: 13px; letter-spacing: 3px; gap: 16px;
+      z-index: 10; transition: opacity 0.6s;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader-bar-wrap { width: 200px; height: 2px; background: #1a2a44; border-radius: 2px; overflow: hidden; }
+    #loader-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #2255aa, #55aaff); transition: width 0.3s; }
+    #loader-msg { color: #6a8fbb; font-size: 11px; }
+
+    /* ── Cursor states ── */
+    body.grabbing * { cursor: grabbing !important; }
+  </style>
+</head>
+<body>
+
+  <div id="loader">
+    <div>LOADING MODEL</div>
+    <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
+    <div id="loader-msg">Initializing…</div>
+  </div>
+
+  <div id="hud">
+    <div><span class="key">Drag</span>        <span class="desc"> Rotate camera</span></div>
+    <div><span class="key">Scroll</span>      <span class="desc"> Zoom</span></div>
+    <div><span class="key">Right-drag</span>  <span class="desc"> Pan</span></div>
+    <div><span class="key">F</span>           <span class="desc"> Toggle flames</span></div>
+    <div><span class="key">R</span>           <span class="desc"> Reset camera</span></div>
+    <div class="sep"></div>
+    <div class="dim">Click engine marker to select</div>
+    <div class="dim"><span class="key" style="font-size:9px">1</span> Move &nbsp;
+                     <span class="key" style="font-size:9px">2</span> Rotate &nbsp;
+                     <span class="key" style="font-size:9px">3</span> Scale</div>
+    <div class="dim"><span class="key" style="font-size:9px">Esc</span> Deselect / unlock camera</div>
+  </div>
+
+  <div id="badge"><div id="badge-dot"></div>Engines Active</div>
+
+  <button id="export-btn">&#11015; EXPORT JSON</button>
+
+  <div id="transform-toolbar">
+    <span id="selected-label">Engine</span>
+    <div class="t-sep"></div>
+    <button class="mode-btn active" data-mode="translate">
+      <span class="icon">&#x2192;</span> MOVE <span class="kbd">1</span>
+    </button>
+    <button class="mode-btn" data-mode="rotate">
+      <span class="icon">&#x21BB;</span> ROTATE <span class="kbd">2</span>
+    </button>
+    <button class="mode-btn" data-mode="scale">
+      <span class="icon">&#x25A1;</span> SCALE <span class="kbd">3</span>
+    </button>
+    <div class="t-sep"></div>
+    <button id="deselect-btn" title="Deselect [Esc]">&#x2715;</button>
+  </div>
+
+  <div id="transform-info"></div>
+  <div id="hover-label"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three":         "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE        from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLLoader }     from 'three/addons/loaders/STLLoader.js';
+
+    // ═══════════════════════════════════════════════════
+    //  RENDERER
+    // ═══════════════════════════════════════════════════
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled   = true;
+    renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+    renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.appendChild(renderer.domElement);
+
+    // ═══════════════════════════════════════════════════
+    //  SCENE & CAMERA
+    // ═══════════════════════════════════════════════════
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x080c18);
+    scene.fog        = new THREE.FogExp2(0x080c18, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(0, 1.5, 6);
+
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.06;
+    orbitControls.minDistance   = 0.5;
+    orbitControls.maxDistance   = 80;
+    orbitControls.target.set(0, 0, 0);
+    orbitControls.saveState();
+
+    // ═══════════════════════════════════════════════════
+    //  LIGHTING
+    // ═══════════════════════════════════════════════════
+    scene.add(new THREE.AmbientLight(0x2a3d5a, 1.2));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+    sun.position.set(6, 10, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far  = 60;
+    scene.add(sun);
+
+    const fill = new THREE.DirectionalLight(0x4466cc, 0.6);
+    fill.position.set(-6, -3, -8);
+    scene.add(fill);
+
+    const engineGlow = new THREE.PointLight(0xff5500, 0, 4, 2);
+    scene.add(engineGlow);
+
+    // ═══════════════════════════════════════════════════
+    //  GRID
+    // ═══════════════════════════════════════════════════
+    const grid = new THREE.GridHelper(30, 30, 0x1a2a44, 0x0d1a2e);
+    grid.position.y = -2;
+    scene.add(grid);
+
+    // ═══════════════════════════════════════════════════
+    //  ANIMATION STATE  (JSON source of truth)
+    // ═══════════════════════════════════════════════════
+    const animationState = {
+      version: '1.0', model: 'jet.stl', animations: [],
+      scene: { engineGlow: { color: '#ff5500', intensity: 3, distance: 4 } },
+    };
+
+    const r3 = n => +n.toFixed(3);
+    const fmt    = n => n.toFixed(3);
+    const fmtDeg = n => THREE.MathUtils.radToDeg(n).toFixed(1) + '\u00b0';
+
+    function syncToState(entity) {
+      const g   = entity.group;
+      const rec = animationState.animations[entity.stateIdx];
+      rec.transform.position = { x: r3(g.position.x), y: r3(g.position.y), z: r3(g.position.z) };
+      rec.transform.rotation = {
+        x: r3(THREE.MathUtils.radToDeg(g.rotation.x)),
+        y: r3(THREE.MathUtils.radToDeg(g.rotation.y)),
+        z: r3(THREE.MathUtils.radToDeg(g.rotation.z)),
+      };
+      rec.transform.scale = { x: r3(g.scale.x), y: r3(g.scale.y), z: r3(g.scale.z) };
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  FLAME DRAWING  (canvas-based SVG-style animation)
+    // ═══════════════════════════════════════════════════
+    const CANVAS_W = 128, CANVAS_H = 256;
+    let flameActive = false, flameTime = 0;
+
+    function drawFlame(ctx, t, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2, baseY = h - 2;
+      const layers = [
+        { stop0:'rgba(120,40,0,0.18)',    stop1:'rgba(40,10,0,0)',    hMul:1.00, wMul:0.72, speed: 4.1, swayAmp:5,   flickAmp:0.08 },
+        { stop0:'rgba(255,90,10,0.85)',   stop1:'rgba(200,30,0,0)',   hMul:0.82, wMul:0.55, speed: 6.3, swayAmp:3,   flickAmp:0.12 },
+        { stop0:'rgba(255,200,30,0.90)',  stop1:'rgba(255,80,0,0)',   hMul:0.55, wMul:0.36, speed: 9.7, swayAmp:1.8, flickAmp:0.15 },
+        { stop0:'rgba(255,255,240,0.98)', stop1:'rgba(255,180,50,0)', hMul:0.28, wMul:0.18, speed:14.0, swayAmp:0.6, flickAmp:0.07 },
+      ];
+      layers.forEach((L, i) => {
+        const n1 = Math.sin(t * L.speed + i * 1.7);
+        const n2 = Math.sin(t * L.speed * 0.6 + i * 0.9 + 1.3);
+        const n3 = Math.sin(t * L.speed * 1.4 + i * 2.1 + 2.7);
+        const flicker = 1 + L.flickAmp * n1 + L.flickAmp * 0.5 * n3;
+        const sway = L.swayAmp * n2;
+        const fH = h * L.hMul * flicker, fW = w * L.wMul;
+        const gx = cx + sway * 0.4, gy = baseY - fH * 0.4;
+        const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, fH * 0.75);
+        grad.addColorStop(0, L.stop0); grad.addColorStop(1, L.stop1);
+        ctx.beginPath();
+        ctx.moveTo(cx, baseY);
+        ctx.bezierCurveTo(cx + fW, baseY - fH * 0.25, cx + fW * 0.6 + sway, baseY - fH * 0.72, cx + sway, baseY - fH);
+        ctx.bezierCurveTo(cx - fW * 0.6 + sway, baseY - fH * 0.72, cx - fW, baseY - fH * 0.25, cx, baseY);
+        ctx.fillStyle = grad; ctx.fill();
+      });
+    }
+
+    function makeFlameSprite() {
+      const canvas = document.createElement('canvas');
+      canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+      const ctx = canvas.getContext('2d');
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({
+        map: tex, transparent: true, depthWrite: false,
+        blending: THREE.AdditiveBlending, sizeAttenuation: true,
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.userData = { canvas, ctx, phase: Math.random() * Math.PI * 2 };
+      return sprite;
+    }
+
+    function updateFlames(dt) {
+      flameTime += dt;
+      for (const ent of flameEntities) {
+        for (const s of ent.sprites) {
+          if (!s.visible) continue;
+          const { canvas, ctx, phase } = s.userData;
+          drawFlame(ctx, flameTime + phase, canvas.width, canvas.height);
+          s.material.map.needsUpdate = true;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  ENGINE FLAME ENTITY
+    //  Each engine is a THREE.Group (direct scene child).
+    //  Sprites toggle individually so hitMesh + outline
+    //  remain accessible whether flames are on or off.
+    // ═══════════════════════════════════════════════════
+    const flameEntities = [];
+
+    function makeEngineFlame(position, flameScale, id, label, stateIdx) {
+      const group = new THREE.Group();
+      group.position.copy(position);
+      scene.add(group);
+
+      const sprites = [];
+      for (let i = 0; i < 4; i++) {
+        const s  = makeFlameSprite();
+        const sc = flameScale * (0.8 + Math.random() * 0.4);
+        s.scale.set(sc * 0.5, sc, 1);
+        s.position.set((Math.random() - 0.5) * flameScale * 0.06, (Math.random() - 0.5) * flameScale * 0.04, 0);
+        s.userData.phase = (i / 4) * Math.PI * 2;
+        s.visible = false;
+        group.add(s); sprites.push(s);
+      }
+
+      const bW = flameScale * 0.55, bH = flameScale * 1.15, bD = flameScale * 0.55;
+      const bbYOff = bH * 0.3;
+
+      // Invisible hit mesh — always present for raycasting.
+      // depthWrite: false so it never clips sprites behind it.
+      const hitMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(bW, bH, bD),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      hitMesh.position.y = bbYOff;
+      group.add(hitMesh);
+
+      // Exhaust indicator sphere
+      const indicator = new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(flameScale * 0.1, 0.055), 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0x224466, transparent: true, opacity: 0.55, depthWrite: false })
+      );
+      group.add(indicator);
+
+      // Dashed selection outline (child of group → follows transforms)
+      const outlineMat = new THREE.LineDashedMaterial({
+        color: 0x0077ee, dashSize: 0.055, gapSize: 0.03,
+        transparent: true, depthWrite: false,
+      });
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(bW, bH, bD)),
+        outlineMat
+      );
+      outline.computeLineDistances();
+      outline.position.y = bbYOff;
+      outline.visible = false;          // hidden until selected
+      group.add(outline);
+
+      animationState.animations.push({
+        id, label, type: 'flame', active: false,
+        transform: {
+          position: { x: r3(position.x), y: r3(position.y), z: r3(position.z) },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale:    { x: 1, y: 1, z: 1 },
+        },
+        appearance: {
+          flameScale: r3(flameScale), spriteCount: 4, blending: 'additive',
+          colors: { core: '#fffff0', inner: '#ffcc20', mid: '#ff5a0a', outer: '#781000' },
+        },
+      });
+
+      const entity = { id, label, group, sprites, hitMesh, indicator, outline, stateIdx, flameScale, bbYOff };
+      flameEntities.push(entity);
+      return entity;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  SELECTION STATE
+    // ═══════════════════════════════════════════════════
+    let selectedEntity = null;
+    let hoverEntity    = null;
+    let transformMode  = 'translate';
+
+    const toolbarEl    = document.getElementById('transform-toolbar');
+    const labelEl      = document.getElementById('selected-label');
+    const infoEl       = document.getElementById('transform-info');
+    const hoverLabelEl = document.getElementById('hover-label');
+
+    function selectEntity(ent) {
+      deselectAll();
+      selectedEntity = ent;
+      ent.outline.visible = true;
+      ent.indicator.material.color.setHex(0x0099ff);
+      ent.indicator.material.opacity = 1.0;
+      orbitControls.enabled = false;    // ← lock camera while editing
+      labelEl.textContent = ent.label;
+      toolbarEl.classList.add('visible');
+      positionTransformer();
+      buildTransformer();
+    }
+
+    function deselectAll() {
+      if (!selectedEntity) return;
+      selectedEntity.outline.visible = false;
+      selectedEntity.indicator.material.color.setHex(0x224466);
+      selectedEntity.indicator.material.opacity = 0.55;
+      selectedEntity = null;
+      orbitControls.enabled = true;     // ← unlock camera when done
+      transformerGroup.visible = false;
+      handleHitMeshes.length   = 0;
+      hoverHandle = null;
+      toolbarEl.classList.remove('visible');
+      infoEl.innerHTML = '';
+    }
+
+    function setMode(mode) {
+      transformMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      if (selectedEntity) buildTransformer();
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  TRANSFORMER GIZMOS
+    //
+    //  Three handle types that appear on the selected entity
+    //  and respond to mouse drag — visually integrated with
+    //  the selection bounding box.
+    //
+    //  MOVE   → axis arrows  (red X · green Y · blue Z)
+    //  ROTATE → torus rings  (green X · red Y · blue Z)
+    //  SCALE  → cube handles (red X · green Y · blue Z)
+    //
+    //  All handles are children of `transformerGroup` which
+    //  is repositioned each frame to follow the entity.
+    // ═══════════════════════════════════════════════════
+
+    // Axis colour tables
+    const TC = {
+      translate: { x: 0xee3333, y: 0x33cc44, z: 0x2266ee },
+      rotate:    { x: 0x22dd44, y: 0xdd2244, z: 0x2244dd },  // per user spec
+      scale:     { x: 0xee3333, y: 0x33cc44, z: 0x2266ee },
+    };
+
+    const transformerGroup = new THREE.Group();
+    scene.add(transformerGroup);
+    transformerGroup.visible = false;
+
+    let handleHitMeshes = [];
+    let hoverHandle     = null;
+
+    // ── Helpers ──────────────────────────────────────────────
+    /** Orient a group (default +Y) to point along the given axis. */
+    function aimAtAxis(grp, axis) {
+      if (axis === 'x') grp.rotation.z = -Math.PI / 2;
+      else if (axis === 'z') grp.rotation.x =  Math.PI / 2;
+      // 'y': no change
+    }
+
+    /** Orient a torus group so the ring encircles the given axis. */
+    function ringAroundAxis(grp, axis) {
+      // Default torus lies in XY plane (circles Z axis).
+      if (axis === 'x') grp.rotation.y = -Math.PI / 2; // ring → YZ plane → encircles X
+      if (axis === 'y') grp.rotation.x =  Math.PI / 2; // ring → XZ plane → encircles Y
+      // 'z': ring already in XY plane → encircles Z
+    }
+
+    function stdMat(color) {
+      return new THREE.MeshStandardMaterial({
+        color, metalness: 0.15, roughness: 0.55,
+        emissive: new THREE.Color(0x000000),
+      });
+    }
+
+    function invisHit() {
+      return new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
+    }
+
+    // ── Arrow handle (translate) ──────────────────────────────
+    function makeArrow(axis, len, color) {
+      const grp  = new THREE.Group();
+      const mat  = stdMat(color);
+
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, len * 0.76, 8), mat.clone());
+      shaft.position.y = len * 0.38;
+
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.048, len * 0.24, 8), mat.clone());
+      head.position.y = len * 0.88;
+
+      // Thicker invisible cylinder for easier hit-testing
+      const hitGeo = new THREE.CylinderGeometry(0.07, 0.07, len, 8);
+      const hit    = new THREE.Mesh(hitGeo, invisHit());
+      hit.position.y  = len * 0.5;
+      hit.userData    = { axis, mode: 'translate', visuals: [shaft, head] };
+
+      grp.add(shaft, head, hit);
+      aimAtAxis(grp, axis);
+      return { group: grp, hit };
+    }
+
+    // ── Cube handle (scale) ───────────────────────────────────
+    function makeCubeHandle(axis, dist, color) {
+      const grp  = new THREE.Group();
+      const mat  = stdMat(color);
+
+      const armMat = mat.clone();
+      armMat.transparent = true; armMat.opacity = 0.5;
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, dist * 0.82, 8), armMat);
+      arm.position.y = dist * 0.41;
+
+      const cs   = dist * 0.13;
+      const cube = new THREE.Mesh(new THREE.BoxGeometry(cs, cs, cs), mat.clone());
+      cube.position.y = dist;
+
+      const hit  = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, dist * 1.15, 8), invisHit());
+      hit.position.y = dist * 0.57;
+      hit.userData   = { axis, mode: 'scale', visuals: [arm, cube] };
+
+      grp.add(arm, cube, hit);
+      aimAtAxis(grp, axis);
+      return { group: grp, hit };
+    }
+
+    // ── Ring handle (rotate) ──────────────────────────────────
+    function makeRingHandle(axis, radius, color) {
+      const grp = new THREE.Group();
+      const mat = stdMat(color);
+      mat.side  = THREE.DoubleSide;
+
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.028, 8, 64), mat.clone());
+
+      // Wider invisible torus for hit-testing
+      const hit  = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.14, 8, 64), invisHit());
+      hit.userData = { axis, mode: 'rotate', visuals: [ring] };
+
+      grp.add(ring, hit);
+      ringAroundAxis(grp, axis);
+      return { group: grp, hit };
+    }
+
+    // ── Build / rebuild handles for current mode ──────────────
+    function buildTransformer() {
+      // Clear previous handles
+      while (transformerGroup.children.length) {
+        transformerGroup.remove(transformerGroup.children[0]);
+      }
+      handleHitMeshes.length = 0;
+      hoverHandle = null;
+
+      if (!selectedEntity) { transformerGroup.visible = false; return; }
+
+      const gs = selectedEntity.flameScale * 1.1;   // gizmo size proportional to flame
+
+      ['x', 'y', 'z'].forEach(axis => {
+        let result;
+        if      (transformMode === 'translate') result = makeArrow(axis, gs, TC.translate[axis]);
+        else if (transformMode === 'scale')     result = makeCubeHandle(axis, gs * 0.9, TC.scale[axis]);
+        else                                    result = makeRingHandle(axis, gs * 0.85, TC.rotate[axis]);
+
+        transformerGroup.add(result.group);
+        handleHitMeshes.push(result.hit);
+      });
+
+      transformerGroup.visible = true;
+    }
+
+    /** Reposition transformer to follow the entity's bounding-box centre. */
+    function positionTransformer() {
+      if (!selectedEntity) return;
+      const wp = new THREE.Vector3();
+      selectedEntity.group.getWorldPosition(wp);
+      // Offset upward to bounding-box centre (account for entity rotation)
+      const localOff = new THREE.Vector3(0, selectedEntity.bbYOff, 0);
+      localOff.applyQuaternion(selectedEntity.group.quaternion);
+      transformerGroup.position.copy(wp).add(localOff);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  DRAG STATE
+    // ═══════════════════════════════════════════════════
+    const drag = {
+      active: false, axis: null, mode: null, pointerId: null,
+      plane:      new THREE.Plane(),
+      startInter: new THREE.Vector3(),
+      startPos:   new THREE.Vector3(),
+      startRot:   new THREE.Euler(),
+      startScl:   new THREE.Vector3(),
+      entityPos:  new THREE.Vector3(),  // world-space pivot at drag start
+      startX:     0,                   // client X at rotate drag start
+      startQuat:  new THREE.Quaternion(), // quaternion snapshot for rotate
+    };
+
+    const _aVecs = {
+      x: new THREE.Vector3(1, 0, 0),
+      y: new THREE.Vector3(0, 1, 0),
+      z: new THREE.Vector3(0, 0, 1),
+    };
+    const _tmp  = new THREE.Vector3();
+    const _tmp2 = new THREE.Vector3();
+
+    const raycaster = new THREE.Raycaster();
+    const mouse     = new THREE.Vector2();
+
+    function setMouse(clientX, clientY) {
+      mouse.x =  (clientX / window.innerWidth)  * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
+    function getRay(clientX, clientY) {
+      setMouse(clientX, clientY);
+      raycaster.setFromCamera(mouse, camera);
+      return raycaster.ray;
+    }
+
+    function pickHandle(clientX, clientY) {
+      if (!selectedEntity || !handleHitMeshes.length) return null;
+      setMouse(clientX, clientY);
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(handleHitMeshes, false);
+      return hits.length ? hits[0].object : null;
+    }
+
+    function pickEntity(clientX, clientY) {
+      setMouse(clientX, clientY);
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(flameEntities.map(e => e.hitMesh), false);
+      return hits.length ? flameEntities.find(e => e.hitMesh === hits[0].object) : null;
+    }
+
+    // ── Start drag on a handle ────────────────────────────────
+    function startDrag(e, hit) {
+      const axis    = hit.userData.axis;
+      const mode    = hit.userData.mode;
+      const axisVec = _aVecs[axis];
+      const ep      = transformerGroup.position.clone();
+
+      drag.entityPos.copy(ep);
+
+      if (mode === 'rotate') {
+        // Plane perpendicular to rotation axis through entity centre
+        drag.plane.setFromNormalAndCoplanarPoint(axisVec, ep);
+      } else {
+        // Camera-facing plane that contains the drag axis
+        _tmp.copy(camera.position).sub(ep).normalize();
+        const dot = _tmp.dot(axisVec);
+        _tmp2.copy(axisVec).multiplyScalar(dot);
+        _tmp.sub(_tmp2).normalize();
+        if (_tmp.lengthSq() < 0.001) _tmp.set(0, 1, 0);
+        drag.plane.setFromNormalAndCoplanarPoint(_tmp, ep);
+      }
+
+      const ray = getRay(e.clientX, e.clientY);
+      if (!ray.intersectPlane(drag.plane, drag.startInter)) drag.startInter.copy(ep);
+
+      drag.active    = true;
+      drag.axis      = axis;
+      drag.mode      = mode;
+      drag.pointerId = e.pointerId;
+      drag.startPos.copy(selectedEntity.group.position);
+      drag.startRot.copy(selectedEntity.group.rotation);
+      drag.startScl.copy(selectedEntity.group.scale);
+      drag.startX = e.clientX;
+      drag.startQuat.copy(selectedEntity.group.quaternion);
+
+      renderer.domElement.setPointerCapture(e.pointerId);
+      document.body.classList.add('grabbing');
+    }
+
+    // ── Update drag ───────────────────────────────────────────
+    function updateDrag(e) {
+      if (!drag.active || !selectedEntity) return;
+
+      const axisVec = _aVecs[drag.axis];
+
+      // Rotate uses screen-space delta — skip plane intersection entirely
+      if (drag.mode === 'rotate') {
+        const totalDx = e.clientX - drag.startX;
+        const sense   = 0.011;
+        const angle   = drag.axis === 'x' ? -totalDx * sense : totalDx * sense;
+        const rotQuat = new THREE.Quaternion().setFromAxisAngle(axisVec, angle);
+        selectedEntity.group.quaternion.multiplyQuaternions(rotQuat, drag.startQuat);
+        syncToState(selectedEntity);
+        return;
+      }
+
+      const ray   = getRay(e.clientX, e.clientY);
+      const inter = new THREE.Vector3();
+      if (!ray.intersectPlane(drag.plane, inter)) return;
+
+      switch (drag.mode) {
+        case 'translate': {
+          const proj = inter.clone().sub(drag.startInter).dot(axisVec);
+          selectedEntity.group.position.copy(drag.startPos).addScaledVector(axisVec, proj);
+          break;
+        }
+        case 'scale': {
+          const proj = inter.clone().sub(drag.startInter).dot(axisVec);
+          selectedEntity.group.scale[drag.axis] = Math.max(0.05, drag.startScl[drag.axis] + proj * 1.8);
+          break;
+        }
+      }
+      syncToState(selectedEntity);
+    }
+
+    // ── End drag ──────────────────────────────────────────────
+    function endDrag() {
+      if (!drag.active) return;
+      drag.active = false;
+      if (drag.pointerId !== null) {
+        try { renderer.domElement.releasePointerCapture(drag.pointerId); } catch (_) {}
+        drag.pointerId = null;
+      }
+      document.body.classList.remove('grabbing');
+    }
+
+    // ── Handle hover highlight ────────────────────────────────
+    function setHoverHandle(hit, on) {
+      if (!hit?.userData.visuals) return;
+      hit.userData.visuals.forEach(m => {
+        m.material.emissive.setHex(on ? 0x555555 : 0x000000);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  POINTER EVENTS
+    // ═══════════════════════════════════════════════════
+    let ptrDown = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointerdown', e => {
+      ptrDown = { x: e.clientX, y: e.clientY };
+
+      // Priority 1: hit a transformer handle → start drag
+      const hit = pickHandle(e.clientX, e.clientY);
+      if (hit) { startDrag(e, hit); return; }
+
+      // Priority 2: hit an entity → select it (handled on pointerup)
+    });
+
+    renderer.domElement.addEventListener('pointermove', e => {
+      if (drag.active) { updateDrag(e); return; }
+
+      // Handle hover
+      const hit = pickHandle(e.clientX, e.clientY);
+      if (hit !== hoverHandle) {
+        setHoverHandle(hoverHandle, false);
+        hoverHandle = hit;
+        setHoverHandle(hoverHandle, true);
+      }
+      renderer.domElement.style.cursor = hit ? 'grab' : 'default';
+
+      // Entity hover label
+      if (!hit) {
+        const ent = pickEntity(e.clientX, e.clientY);
+        if (ent && ent !== selectedEntity) {
+          if (ent !== hoverEntity) {
+            if (hoverEntity && hoverEntity !== selectedEntity) {
+              hoverEntity.indicator.material.color.setHex(0x224466);
+              hoverEntity.indicator.material.opacity = 0.55;
+            }
+            hoverEntity = ent;
+            ent.indicator.material.color.setHex(0x00ccff);
+            ent.indicator.material.opacity = 0.9;
+          }
+          const wp = new THREE.Vector3();
+          ent.group.getWorldPosition(wp); wp.project(camera);
+          hoverLabelEl.style.left = ((wp.x + 1) / 2 * window.innerWidth)  + 'px';
+          hoverLabelEl.style.top  = ((-wp.y + 1) / 2 * window.innerHeight) + 'px';
+          hoverLabelEl.textContent = ent.label;
+          hoverLabelEl.classList.add('show');
+        } else {
+          if (hoverEntity && hoverEntity !== selectedEntity) {
+            hoverEntity.indicator.material.color.setHex(0x224466);
+            hoverEntity.indicator.material.opacity = 0.55;
+          }
+          hoverEntity = null;
+          hoverLabelEl.classList.remove('show');
+          renderer.domElement.style.cursor = ent === selectedEntity ? 'default' : 'default';
+        }
+      } else {
+        hoverLabelEl.classList.remove('show');
+      }
+    });
+
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (drag.active) { endDrag(); return; }
+
+      const dx = e.clientX - ptrDown.x, dy = e.clientY - ptrDown.y;
+      if (Math.hypot(dx, dy) > 5) return;  // was a drag, not a click
+
+      const hit = pickHandle(e.clientX, e.clientY);
+      if (hit) return;  // clicked handle, not an entity
+
+      const ent = pickEntity(e.clientX, e.clientY);
+      if (ent) {
+        ent === selectedEntity ? deselectAll() : selectEntity(ent);
+      } else {
+        deselectAll();
+      }
+    });
+
+    renderer.domElement.addEventListener('pointercancel', endDrag);
+
+    // ═══════════════════════════════════════════════════
+    //  STL LOADER
+    // ═══════════════════════════════════════════════════
+    const loaderEl  = document.getElementById('loader');
+    const loaderBar = document.getElementById('loader-bar');
+    const loaderMsg = document.getElementById('loader-msg');
+
+    new STLLoader().load('jet.stl',
+      (geometry) => {
+        loaderMsg.textContent = 'Building scene…';
+        loaderBar.style.width = '100%';
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+
+        const centre = new THREE.Vector3();
+        geometry.boundingBox.getCenter(centre);
+        geometry.translate(-centre.x, -centre.y, -centre.z);
+
+        const rawSize = new THREE.Vector3();
+        geometry.boundingBox.getSize(rawSize);
+        const s = 3 / Math.max(rawSize.x, rawSize.y, rawSize.z);
+        geometry.scale(s, s, s);
+        geometry.computeBoundingBox();
+
+        const finalBox  = geometry.boundingBox;
+        const finalSize = new THREE.Vector3();
+        finalBox.getSize(finalSize);
+
+        const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+          color: 0x8899cc, metalness: 0.75, roughness: 0.25,
+        }));
+        mesh.castShadow = mesh.receiveShadow = true;
+        scene.add(mesh);
+
+        grid.position.y = finalBox.min.y - 0.05;
+
+        const fitDist = finalSize.length() * 1.2;
+        camera.position.set(0, finalSize.y * 0.3, fitDist);
+        orbitControls.minDistance = fitDist * 0.15;
+        orbitControls.maxDistance = fitDist * 12;
+        orbitControls.update();
+        orbitControls.saveState();
+
+        // Orientation heuristic
+        const dims = ['x','y','z'].map(a => ({ axis: a, len: finalSize[a] })).sort((a,b) => b.len - a.len);
+        const fuselageAxis = dims[0].axis;
+        const wingspanAxis = dims[1].axis;
+        const heightAxis   = dims[2].axis;
+
+        const rearVal    = finalBox.min[fuselageAxis];
+        const midH       = (finalBox.min[heightAxis]   + finalBox.max[heightAxis])   / 2;
+        const midW       = (finalBox.min[wingspanAxis] + finalBox.max[wingspanAxis]) / 2;
+        const flameScale = finalSize[heightAxis] * 0.9;
+
+        function rearPos(wingOffset = 0) {
+          const p = new THREE.Vector3();
+          p[fuselageAxis] = rearVal; p[heightAxis] = midH; p[wingspanAxis] = midW + wingOffset;
+          return p;
+        }
+
+        let positions;
+        if (finalSize[wingspanAxis] > finalSize[fuselageAxis] * 0.6) {
+          const sp = finalSize[wingspanAxis] * 0.14;
+          positions = [rearPos(-sp), rearPos(sp)];
+        } else {
+          positions = [rearPos(0)];
+        }
+
+        positions.forEach((pos, i) => makeEngineFlame(pos, flameScale, `engine_${i}`, `Engine ${i + 1}`, i));
+
+        const glowPos = positions.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(positions.length);
+        engineGlow.position.copy(glowPos);
+
+        setTimeout(() => loaderEl.classList.add('hidden'), 300);
+        console.info(`[jet-engine-flame] ${positions.length} engine(s) | fuselage:${fuselageAxis} wing:${wingspanAxis} height:${heightAxis}`);
+      },
+      (xhr) => {
+        if (xhr.total) {
+          const pct = Math.round(xhr.loaded / xhr.total * 90);
+          loaderBar.style.width = pct + '%';
+          loaderMsg.textContent = `Loading model… ${pct}%`;
+        }
+      },
+      (err) => {
+        loaderMsg.textContent = 'Error loading jet.stl — check console.';
+        console.error('[jet-engine-flame]', err);
+      }
+    );
+
+    // ═══════════════════════════════════════════════════
+    //  EXPORT
+    // ═══════════════════════════════════════════════════
+    function exportJSON() {
+      flameEntities.forEach(syncToState);
+      const payload = {
+        ...animationState,
+        exportedAt: new Date().toISOString(),
+        scene: {
+          ...animationState.scene,
+          camera: {
+            position: { x: r3(camera.position.x), y: r3(camera.position.y), z: r3(camera.position.z) },
+            target:   { x: r3(orbitControls.target.x), y: r3(orbitControls.target.y), z: r3(orbitControls.target.z) },
+          },
+        },
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      Object.assign(document.createElement('a'), { href: url, download: 'jet-engine-flame.animation.json' }).click();
+      URL.revokeObjectURL(url);
+      const btn = document.getElementById('export-btn');
+      btn.textContent = '\u2713 EXPORTED';
+      btn.classList.add('exported');
+      setTimeout(() => { btn.textContent = '\u2B07 EXPORT JSON'; btn.classList.remove('exported'); }, 1800);
+    }
+
+    document.getElementById('export-btn').addEventListener('click', exportJSON);
+    document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    document.getElementById('deselect-btn').addEventListener('click', deselectAll);
+
+    // ═══════════════════════════════════════════════════
+    //  KEY CONTROLS
+    // ═══════════════════════════════════════════════════
+    const badge = document.getElementById('badge');
+
+    function toggleFlames(active) {
+      flameActive = active;
+      flameEntities.forEach((ent, i) => {
+        ent.sprites.forEach(s => s.visible = active);
+        animationState.animations[i].active = active;
+      });
+      badge.classList.toggle('on', active);
+      engineGlow.intensity = active ? 3 : 0;
+    }
+
+    window.addEventListener('keydown', e => {
+      if (e.target !== document.body && e.target.tagName !== 'CANVAS') return;
+      switch (e.key) {
+        case 'f': case 'F': toggleFlames(!flameActive); break;
+        case 'r': case 'R': orbitControls.reset();      break;
+        case '1': if (selectedEntity) setMode('translate'); break;
+        case '2': if (selectedEntity) setMode('rotate');    break;
+        case '3': if (selectedEntity) setMode('scale');     break;
+        case 'Escape': deselectAll(); break;
+      }
+    });
+
+    // ═══════════════════════════════════════════════════
+    //  RESIZE
+    // ═══════════════════════════════════════════════════
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ═══════════════════════════════════════════════════
+    //  RENDER LOOP
+    // ═══════════════════════════════════════════════════
+    const clock = new THREE.Clock();
+
+    (function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+
+      orbitControls.update();
+      if (flameActive) updateFlames(dt);
+
+      if (selectedEntity) {
+        // Keep transformer gizmo centred on entity's bounding-box centre
+        positionTransformer();
+
+        // Pulse selection outline
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.0038);
+        selectedEntity.outline.material.color.setHSL(0.58 + 0.03 * pulse, 0.95, 0.38 + 0.2 * pulse);
+
+        // Live transform readout
+        const g = selectedEntity.group;
+        infoEl.innerHTML =
+          `<span class="lbl">pos</span>` +
+          ` x:<span class="val">${fmt(g.position.x)}</span>` +
+          ` y:<span class="val">${fmt(g.position.y)}</span>` +
+          ` z:<span class="val">${fmt(g.position.z)}</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">rot</span>` +
+          ` x:<span class="val">${fmtDeg(g.rotation.x)}</span>` +
+          ` y:<span class="val">${fmtDeg(g.rotation.y)}</span>` +
+          ` z:<span class="val">${fmtDeg(g.rotation.z)}</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">scl</span>` +
+          ` x:<span class="val">${fmt(g.scale.x)}</span>` +
+          ` y:<span class="val">${fmt(g.scale.y)}</span>` +
+          ` z:<span class="val">${fmt(g.scale.z)}</span>`;
+      }
+
+      renderer.render(scene, camera);
+    })();
+
+  </script>
+</body>
+</html>

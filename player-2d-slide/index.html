@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>2D Platformer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+  #game-canvas { display: block; }
+
+  #toggle-panel {
+    position: fixed;
+    right: 0; top: 0;
+    width: 220px; height: 100vh;
+    background: rgba(10, 10, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column;
+    padding: 20px 14px;
+    gap: 14px;
+    z-index: 10;
+  }
+  #toggle-panel h3 {
+    color: #7f8fa6;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .toggle-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: left;
+    line-height: 1.4;
+  }
+  .toggle-btn.active {
+    background: rgba(100, 200, 255, 0.1);
+    border-color: rgba(100, 200, 255, 0.4);
+    color: #64c8ff;
+    box-shadow: 0 0 12px rgba(100, 200, 255, 0.08);
+  }
+  .toggle-btn:hover { background: rgba(255,255,255,0.08); }
+  .toggle-btn .indicator {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #555;
+    margin-right: 8px;
+    transition: background 0.25s;
+  }
+  .toggle-btn.active .indicator { background: #64c8ff; box-shadow: 0 0 6px #64c8ff; }
+
+  #hud {
+    position: fixed;
+    left: 20px; top: 20px;
+    color: #7f8fa6;
+    font-size: 12px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  #health-bar {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #health-bar-inner {
+    width: 120px; height: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  #health-fill {
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+    border-radius: 5px;
+    transition: width 0.3s;
+  }
+
+  #svg-overlay {
+    position: fixed;
+    left: 0; top: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div>ARROWS: Move &nbsp; SPACE: Jump</div>
+  <div id="health-bar">
+    <span>HP</span>
+    <div id="health-bar-inner"><div id="health-fill"></div></div>
+    <span id="health-text">5</span>
+  </div>
+</div>
+
+<div id="toggle-panel">
+  <h3>Animations</h3>
+  <button class="toggle-btn active" id="btn-dust" onclick="toggleAnim('dust')">
+    <span class="indicator"></span>Dust Trail
+  </button>
+  <button class="toggle-btn active" id="btn-surprise" onclick="toggleAnim('surprise')">
+    <span class="indicator"></span>Enemy Land FX
+  </button>
+  <button class="toggle-btn active" id="btn-interact" onclick="toggleAnim('interact')">
+    <span class="indicator"></span>Interactive FX
+  </button>
+  <button class="toggle-btn active" id="btn-damage" onclick="toggleAnim('damage')">
+    <span class="indicator"></span>Damage FX
+  </button>
+</div>
+
+<svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+<canvas id="game-canvas"></canvas>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ─── Config ───
+const GAME_W = window.innerWidth - 220;
+const GAME_H = window.innerHeight;
+const GRAVITY = -32;
+const JUMP_VEL = 15;
+const MOVE_SPEED = 10;
+const GROUND_Y = -4;
+const PLAYER_SIZE = 1;
+const MAX_HP = 5;
+const DAMAGE_COOLDOWN = 1.0; // seconds of invincibility after hit
+
+// ─── Toggle state ───
+const animToggles = { dust: true, surprise: true, interact: true, damage: true };
+window.toggleAnim = function(key) {
+  animToggles[key] = !animToggles[key];
+  document.getElementById('btn-' + key).classList.toggle('active');
+};
+
+// ─── Three.js setup ───
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(GAME_W, GAME_H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x16213e);
+
+const scene = new THREE.Scene();
+const frustumH = 20;
+const aspect = GAME_W / GAME_H;
+const camera = new THREE.OrthographicCamera(
+  -frustumH * aspect / 2, frustumH * aspect / 2,
+  frustumH / 2, -frustumH / 2, 0.1, 100
+);
+const cameraBasePos = new THREE.Vector3(0, 2, 20);
+camera.position.copy(cameraBasePos);
+camera.lookAt(0, 2, 0);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0x8899bb, 0.6);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+dirLight.position.set(5, 10, 8);
+scene.add(dirLight);
+
+// ─── Materials ───
+const matPlayer = new THREE.MeshStandardMaterial({ color: 0x64c8ff, roughness: 0.3, metalness: 0.1 });
+const matPlayerHurt = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.3, metalness: 0.1, emissive: 0xff0000, emissiveIntensity: 0.5 });
+const matGround = new THREE.MeshStandardMaterial({ color: 0x2d3a4a, roughness: 0.8 });
+const matPassiveEnemy = new THREE.MeshStandardMaterial({ color: 0x8854d0, roughness: 0.5 }); // purple = passive
+const matEnemy = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.4, emissive: 0x440000, emissiveIntensity: 0.3 }); // angry red = harmful
+const matInteractive = new THREE.MeshStandardMaterial({ color: 0xfeca57, roughness: 0.4, emissive: 0x000000 });
+
+// ─── Player ───
+const playerGeo = new THREE.BoxGeometry(PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE);
+const player = new THREE.Mesh(playerGeo, matPlayer.clone());
+player.position.set(-8, GROUND_Y + PLAYER_SIZE / 2, 0);
+scene.add(player);
+
+const playerState = {
+  vx: 0, vy: 0,
+  grounded: false,   // on any solid surface
+  jumping: false,
+  jumpRising: false,
+  prevY: player.position.y,
+  hp: MAX_HP,
+  damageCooldown: 0,  // invincibility timer
+  hurtFlash: 0,
+  coyoteTimer: 0,    // time since last grounded (allows late jumps)
+  jumpBuffer: 0      // time since jump was pressed (allows early jumps)
+};
+const COYOTE_TIME = 0.12;  // seconds player can still jump after leaving surface
+const JUMP_BUFFER = 0.15;  // seconds jump press is remembered before landing
+
+// ─── Health HUD ───
+const healthFill = document.getElementById('health-fill');
+const healthText = document.getElementById('health-text');
+function updateHealthUI() {
+  const pct = Math.max(0, playerState.hp / MAX_HP) * 100;
+  healthFill.style.width = pct + '%';
+  healthText.textContent = playerState.hp;
+}
+
+// ─── Ground ───
+const groundGeo = new THREE.BoxGeometry(200, 1, 2);
+const ground = new THREE.Mesh(groundGeo, matGround);
+ground.position.set(0, GROUND_Y - 0.5, 0);
+scene.add(ground);
+
+for (let i = -50; i < 50; i += 2) {
+  const tick = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.15, 0.1),
+    new THREE.MeshStandardMaterial({ color: 0x3d4a5a })
+  );
+  tick.position.set(i, GROUND_Y - 0.05, 0.5);
+  scene.add(tick);
+}
+
+// ─── Background stars ───
+for (let i = 0; i < 30; i++) {
+  const s = 0.05 + Math.random() * 0.15;
+  const star = new THREE.Mesh(
+    new THREE.SphereGeometry(s, 6, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 + Math.random() * 0.5 })
+  );
+  star.position.set(-30 + Math.random() * 60, 2 + Math.random() * 8, -5);
+  scene.add(star);
+}
+
+// ─── Level generation ───
+const obstacles = []; // passive enemies (purple) - can land on
+const enemies = [];   // harmful enemies (red) - side collision = damage
+const interactives = [];
+const birds = [];
+
+function generateLevel() {
+  let seed = 42;
+  function sr() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+
+  const startX = -2;
+
+  // Passive enemies (purple) - player can land on these, triggers landing FX
+  for (let i = 0; i < 5; i++) {
+    const w = 1.0 + sr() * 0.8;
+    const h = 0.8 + sr() * 1.5;
+    const geo = new THREE.BoxGeometry(w, h, 1);
+    const obs = new THREE.Mesh(geo, matPassiveEnemy.clone());
+    const x = startX + i * 7 + sr() * 2;
+    obs.position.set(x, GROUND_Y + h / 2, 0);
+    obs.userData = { type: 'passive', w, h, surprised: false, baseY: GROUND_Y + h / 2 };
+    // Add small eyes to make them look like creatures
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const eyeR = eyeL.clone();
+    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    const pupilR = pupilL.clone();
+    eyeL.position.set(-w * 0.2, h * 0.25, 0.55);
+    eyeR.position.set(w * 0.2, h * 0.25, 0.55);
+    pupilL.position.set(-w * 0.2, h * 0.25, 0.62);
+    pupilR.position.set(w * 0.2, h * 0.25, 0.62);
+    obs.add(eyeL); obs.add(eyeR); obs.add(pupilL); obs.add(pupilR);
+    scene.add(obs);
+    obstacles.push(obs);
+  }
+
+  // Harmful enemies (red) - side collision hurts player, but player CAN land on top
+  for (let i = 0; i < 5; i++) {
+    const w = 0.9 + sr() * 0.6;
+    const h = 0.7 + sr() * 1.0;
+    const geo = new THREE.BoxGeometry(w, h, 1);
+    const ene = new THREE.Mesh(geo, matEnemy.clone());
+    const x = startX + 3.5 + i * 7 + sr() * 2;
+    ene.position.set(x, GROUND_Y + h / 2, 0);
+    ene.userData = { type: 'enemy', w, h, surprised: false, baseY: GROUND_Y + h / 2 };
+    // Angry eyes
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-w * 0.2, h * 0.25, 0.55);
+    eyeR.position.set(w * 0.2, h * 0.25, 0.55);
+    ene.add(eyeL); ene.add(eyeR);
+    // Spikes on top
+    for (let s = 0; s < 3; s++) {
+      const spike = new THREE.Mesh(
+        new THREE.ConeGeometry(0.1, 0.25, 4),
+        new THREE.MeshStandardMaterial({ color: 0xff2222 })
+      );
+      spike.position.set(-w * 0.3 + s * w * 0.3, h * 0.5 + 0.12, 0);
+      ene.add(spike);
+    }
+    scene.add(ene);
+    enemies.push(ene);
+  }
+
+  // Interactives (yellow)
+  for (let i = 0; i < 4; i++) {
+    const geo = new THREE.BoxGeometry(1.2, 1.2, 1);
+    const inter = new THREE.Mesh(geo, matInteractive.clone());
+    const x = startX + 1 + i * 9 + sr() * 3;
+    inter.position.set(x, GROUND_Y + 0.6, 0);
+    inter.userData = {
+      type: 'interactive', lightOn: false,
+      originalY: GROUND_Y + 0.6, carrying: false,
+      flyingAway: false, w: 1.2, h: 1.2
+    };
+    scene.add(inter);
+    interactives.push(inter);
+  }
+}
+generateLevel();
+
+// ─── Input ───
+const keys = {};
+const justPressed = {};
+window.addEventListener('keydown', e => {
+  if (!keys[e.code]) justPressed[e.code] = true;
+  keys[e.code] = true;
+  e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ─── SVG particle system ───
+const svgOverlay = document.getElementById('svg-overlay');
+const particles = [];
+
+function worldToScreen(wx, wy) {
+  const v = new THREE.Vector3(wx, wy, 0);
+  v.project(camera);
+  return {
+    x: (v.x * 0.5 + 0.5) * GAME_W,
+    y: (-v.y * 0.5 + 0.5) * GAME_H
+  };
+}
+
+// Dust trail particles - small, continuous while moving
+function spawnDustTrail(worldX, worldY) {
+  if (!animToggles.dust) return;
+  const count = 2;
+  for (let i = 0; i < count; i++) {
+    const pos = worldToScreen(worldX + (Math.random() - 0.5) * 0.5, worldY);
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', pos.x);
+    el.setAttribute('cy', pos.y);
+    el.setAttribute('r', 2 + Math.random() * 3);
+    el.setAttribute('fill', 'rgba(180,170,150,0.5)');
+    svgOverlay.appendChild(el);
+    particles.push({
+      el, x: pos.x, y: pos.y,
+      vx: (Math.random() - 0.5) * 30,
+      vy: -15 - Math.random() * 25,
+      life: 0.4 + Math.random() * 0.3,
+      age: 0, type: 'dust'
+    });
+  }
+}
+
+// Bigger dust burst on landing
+function spawnDustBurst(worldX, worldY) {
+  if (!animToggles.dust) return;
+  const count = 8;
+  for (let i = 0; i < count; i++) {
+    const pos = worldToScreen(worldX, worldY);
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', pos.x);
+    el.setAttribute('cy', pos.y);
+    el.setAttribute('r', 3 + Math.random() * 5);
+    el.setAttribute('fill', 'rgba(180,170,150,0.7)');
+    svgOverlay.appendChild(el);
+    particles.push({
+      el, x: pos.x, y: pos.y,
+      vx: (Math.random() - 0.5) * 100,
+      vy: -20 - Math.random() * 50,
+      life: 0.5 + Math.random() * 0.4,
+      age: 0, type: 'dust'
+    });
+  }
+}
+
+// Landing on passive enemy - surprise effect
+function spawnEnemyLandFX(worldX, worldY) {
+  if (!animToggles.surprise) return;
+  const symbols = ['!', '?', '*', '#', '+'];
+  const colors = ['#8854d0', '#a55eea', '#64c8ff', '#ff9ff3', '#feca57'];
+  for (let i = 0; i < 6; i++) {
+    const pos = worldToScreen(worldX, worldY - 1);
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    el.setAttribute('x', pos.x);
+    el.setAttribute('y', pos.y);
+    el.setAttribute('fill', colors[i % colors.length]);
+    el.setAttribute('font-size', '20');
+    el.setAttribute('font-weight', 'bold');
+    el.setAttribute('text-anchor', 'middle');
+    el.textContent = symbols[i % symbols.length];
+    svgOverlay.appendChild(el);
+    const angle = (Math.PI * 2 * i) / 6;
+    particles.push({
+      el, x: pos.x, y: pos.y,
+      vx: Math.cos(angle) * 90,
+      vy: Math.sin(angle) * 90 - 40,
+      life: 0.9, age: 0, type: 'surprise'
+    });
+  }
+  // Starburst
+  const pos = worldToScreen(worldX, worldY - 0.5);
+  const star = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  const cx = pos.x, cy = pos.y;
+  let pts = '';
+  for (let i = 0; i < 10; i++) {
+    const a = (Math.PI * 2 * i) / 10 - Math.PI / 2;
+    const r = i % 2 === 0 ? 22 : 9;
+    pts += `${cx + Math.cos(a) * r},${cy + Math.sin(a) * r} `;
+  }
+  star.setAttribute('points', pts.trim());
+  star.setAttribute('fill', 'rgba(136,84,208,0.5)');
+  svgOverlay.appendChild(star);
+  particles.push({ el: star, x: cx, y: cy, vx: 0, vy: 0, life: 0.5, age: 0, type: 'starburst' });
+}
+
+// ─── DAMAGE ANIMATION (surprise!) ───
+// Shockwave rings + skull rain + lightning bolts + floating damage text + screen crack
+let screenShake = 0;
+
+function spawnDamageEffect(worldX, worldY) {
+  if (!animToggles.damage) return;
+  screenShake = 0.4;
+  const pos = worldToScreen(worldX, worldY);
+
+  // 1) Expanding shockwave rings
+  for (let r = 0; r < 3; r++) {
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    ring.setAttribute('cx', pos.x);
+    ring.setAttribute('cy', pos.y);
+    ring.setAttribute('r', 5);
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', r === 0 ? '#ff4444' : r === 1 ? '#ff8800' : '#ffcc00');
+    ring.setAttribute('stroke-width', '3');
+    svgOverlay.appendChild(ring);
+    particles.push({
+      el: ring, x: pos.x, y: pos.y, vx: 0, vy: 0,
+      life: 0.6 + r * 0.15, age: r * 0.1, type: 'shockwave', startDelay: r * 0.1
+    });
+  }
+
+  // 2) Skull emoji rain
+  const skulls = ['\u2620', '\u2694', '\u26A1', '\u2739', '\u2717'];
+  for (let i = 0; i < 8; i++) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    el.setAttribute('x', pos.x);
+    el.setAttribute('y', pos.y);
+    el.setAttribute('fill', i < 3 ? '#ff2222' : '#ff8800');
+    el.setAttribute('font-size', 14 + Math.random() * 12);
+    el.setAttribute('text-anchor', 'middle');
+    el.textContent = skulls[i % skulls.length];
+    svgOverlay.appendChild(el);
+    const angle = (Math.PI * 2 * i) / 8;
+    particles.push({
+      el, x: pos.x, y: pos.y,
+      vx: Math.cos(angle) * (60 + Math.random() * 60),
+      vy: Math.sin(angle) * (60 + Math.random() * 60) - 30,
+      life: 1.0, age: 0, type: 'surprise'
+    });
+  }
+
+  // 3) Lightning bolts (SVG paths)
+  for (let i = 0; i < 4; i++) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    const angle = (Math.PI * 2 * i) / 4 + Math.random() * 0.5;
+    let d = `${pos.x},${pos.y}`;
+    let cx = pos.x, cy = pos.y;
+    for (let seg = 0; seg < 4; seg++) {
+      cx += Math.cos(angle) * (15 + Math.random() * 10) + (Math.random() - 0.5) * 15;
+      cy += Math.sin(angle) * (15 + Math.random() * 10) + (Math.random() - 0.5) * 15;
+      d += ` ${cx},${cy}`;
+    }
+    path.setAttribute('points', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#ffee44');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linecap', 'round');
+    svgOverlay.appendChild(path);
+    particles.push({
+      el: path, x: pos.x, y: pos.y, vx: 0, vy: 0,
+      life: 0.3 + Math.random() * 0.2, age: 0, type: 'lightning'
+    });
+  }
+
+  // 4) Floating "-1" damage text
+  const dmgText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  dmgText.setAttribute('x', pos.x);
+  dmgText.setAttribute('y', pos.y - 20);
+  dmgText.setAttribute('fill', '#ff4444');
+  dmgText.setAttribute('font-size', '28');
+  dmgText.setAttribute('font-weight', 'bold');
+  dmgText.setAttribute('text-anchor', 'middle');
+  dmgText.setAttribute('font-family', 'Impact, sans-serif');
+  dmgText.textContent = '-1';
+  svgOverlay.appendChild(dmgText);
+  particles.push({
+    el: dmgText, x: pos.x, y: pos.y - 20,
+    vx: 0, vy: -60, life: 1.2, age: 0, type: 'dmgtext'
+  });
+
+  // 5) Red vignette flash
+  const vignette = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  vignette.setAttribute('x', 0);
+  vignette.setAttribute('y', 0);
+  vignette.setAttribute('width', GAME_W);
+  vignette.setAttribute('height', GAME_H);
+  vignette.setAttribute('fill', 'rgba(255,0,0,0.25)');
+  svgOverlay.appendChild(vignette);
+  particles.push({
+    el: vignette, x: 0, y: 0, vx: 0, vy: 0,
+    life: 0.3, age: 0, type: 'vignette'
+  });
+}
+
+function spawnLightToggle(worldX, worldY, on) {
+  if (!animToggles.interact) return;
+  const pos = worldToScreen(worldX, worldY - 1.5);
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  el.setAttribute('cx', pos.x);
+  el.setAttribute('cy', pos.y);
+  el.setAttribute('r', on ? 25 : 15);
+  el.setAttribute('fill', on ? 'rgba(254,202,87,0.4)' : 'rgba(100,100,100,0.3)');
+  svgOverlay.appendChild(el);
+  particles.push({
+    el, x: pos.x, y: pos.y, vx: 0, vy: 0,
+    life: 0.5, age: 0, type: 'glow', expanding: on
+  });
+}
+
+function spawnBirdEffect(worldX, worldY) {
+  if (!animToggles.interact) return;
+  for (let i = 0; i < 3; i++) {
+    const pos = worldToScreen(worldX, worldY);
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    el.setAttribute('x', pos.x);
+    el.setAttribute('y', pos.y);
+    el.setAttribute('fill', '#feca57');
+    el.setAttribute('font-size', '16');
+    el.textContent = '\u2727';
+    svgOverlay.appendChild(el);
+    particles.push({
+      el, x: pos.x, y: pos.y,
+      vx: (Math.random() - 0.5) * 40,
+      vy: -30 - Math.random() * 20,
+      life: 0.7, age: 0, type: 'sparkle'
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.age += dt;
+    if (p.age >= p.life) {
+      p.el.remove();
+      particles.splice(i, 1);
+      continue;
+    }
+    const t = p.age / p.life;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    if (p.type === 'dust') {
+      p.el.setAttribute('cx', p.x);
+      p.el.setAttribute('cy', p.y);
+      p.el.setAttribute('r', Math.max(0, (1 - t) * 5));
+      p.el.setAttribute('fill', `rgba(180,170,150,${(1 - t) * 0.7})`);
+    } else if (p.type === 'surprise' || p.type === 'sparkle') {
+      p.el.setAttribute('x', p.x);
+      p.el.setAttribute('y', p.y);
+      p.el.setAttribute('opacity', 1 - t);
+    } else if (p.type === 'starburst') {
+      const s = 1 + t * 1.5;
+      p.el.setAttribute('transform', `translate(${p.x},${p.y}) scale(${s}) translate(${-p.x},${-p.y})`);
+      p.el.setAttribute('opacity', 1 - t);
+    } else if (p.type === 'glow') {
+      const r = p.expanding ? 25 + t * 30 : 15 - t * 10;
+      p.el.setAttribute('r', Math.max(0, r));
+      p.el.setAttribute('opacity', 1 - t);
+    } else if (p.type === 'shockwave') {
+      const effectiveT = Math.max(0, (p.age - (p.startDelay || 0)) / (p.life - (p.startDelay || 0)));
+      if (effectiveT > 0) {
+        const r = 5 + effectiveT * 80;
+        p.el.setAttribute('r', r);
+        p.el.setAttribute('stroke-width', Math.max(0.5, 3 * (1 - effectiveT)));
+        p.el.setAttribute('opacity', 1 - effectiveT);
+      }
+    } else if (p.type === 'lightning') {
+      p.el.setAttribute('opacity', 1 - t * t);
+      p.el.setAttribute('stroke-width', Math.max(0.5, 2 * (1 - t)));
+    } else if (p.type === 'dmgtext') {
+      p.el.setAttribute('x', p.x);
+      p.el.setAttribute('y', p.y);
+      const scale = 1 + t * 0.5;
+      p.el.setAttribute('font-size', 28 * scale);
+      p.el.setAttribute('opacity', 1 - t * 0.8);
+    } else if (p.type === 'vignette') {
+      p.el.setAttribute('fill', `rgba(255,0,0,${0.25 * (1 - t)})`);
+    }
+  }
+}
+
+// ─── Collision helpers ───
+function boxOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return Math.abs(ax - bx) < (aw + bw) / 2 && Math.abs(ay - by) < (ah + bh) / 2;
+}
+
+// Determine if player is landing on top: player was above top surface last frame
+function isLandingOnTop(playerPrevY, obsY, oh) {
+  const obsTop = obsY + oh / 2;
+  const prevBottom = playerPrevY - PLAYER_SIZE / 2;
+  return prevBottom >= obsTop - 0.3; // small tolerance
+}
+
+// ─── Bird objects ───
+function createBird(x, y) {
+  const birdGroup = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0xfeca57, roughness: 0.5 })
+  );
+  birdGroup.add(body);
+  const wingGeo = new THREE.BoxGeometry(0.6, 0.05, 0.3);
+  const wingMat = new THREE.MeshStandardMaterial({ color: 0xf0c040 });
+  const leftWing = new THREE.Mesh(wingGeo, wingMat);
+  leftWing.position.set(-0.35, 0, 0);
+  birdGroup.add(leftWing);
+  const rightWing = new THREE.Mesh(wingGeo, wingMat);
+  rightWing.position.set(0.35, 0, 0);
+  birdGroup.add(rightWing);
+  birdGroup.position.set(x, y, 0);
+  scene.add(birdGroup);
+  birds.push({ group: birdGroup, leftWing, rightWing, vx: 1.5 + Math.random() * 2, vy: 2 + Math.random() * 1.5, age: 0, life: 4 });
+}
+
+function updateBirds(dt) {
+  for (let i = birds.length - 1; i >= 0; i--) {
+    const b = birds[i];
+    b.age += dt;
+    if (b.age > b.life) { scene.remove(b.group); birds.splice(i, 1); continue; }
+    b.group.position.x += b.vx * dt;
+    b.group.position.y += b.vy * dt;
+    const flap = Math.sin(b.age * 12) * 0.5;
+    b.leftWing.rotation.z = flap;
+    b.rightWing.rotation.z = -flap;
+    const fade = Math.max(0, 1 - (b.age / b.life));
+    b.group.children.forEach(c => { if (c.material) { c.material.opacity = fade; c.material.transparent = true; } });
+  }
+}
+
+// ─── Carrying state ───
+let carriedPlatform = null;
+
+// ─── Dust trail throttle ───
+let dustTrailTimer = 0;
+const DUST_TRAIL_INTERVAL = 0.08; // spawn dust every 80ms while moving
+
+// ─── Game loop ───
+const clock = new THREE.Clock();
+
+function executeJump() {
+  playerState.vy = JUMP_VEL;
+  playerState.grounded = false;
+  playerState.coyoteTimer = 0;
+  playerState.jumpBuffer = 0;
+  playerState.jumping = true;
+  playerState.jumpRising = true;
+
+  if (carriedPlatform) {
+    carriedPlatform.userData.carrying = false;
+    carriedPlatform = null;
+  }
+
+  if (animToggles.interact) {
+    for (const inter of interactives) {
+      if (inter.userData.flyingAway) continue;
+      const dx = Math.abs(player.position.x - inter.position.x);
+      const dy = Math.abs(player.position.y - inter.position.y);
+      if (dx < 2 && dy < 2) {
+        inter.userData.flyingAway = true;
+        inter.visible = false;
+        createBird(inter.position.x, inter.position.y);
+        spawnBirdEffect(inter.position.x, inter.position.y);
+        break;
+      }
+    }
+  }
+
+  spawnDustBurst(player.position.x, player.position.y - PLAYER_SIZE / 2);
+}
+
+function update() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // ─ Damage cooldown ─
+  if (playerState.damageCooldown > 0) playerState.damageCooldown -= dt;
+  if (playerState.hurtFlash > 0) {
+    playerState.hurtFlash -= dt;
+    player.material = (Math.sin(playerState.hurtFlash * 30) > 0) ? matPlayerHurt : matPlayer;
+    if (playerState.hurtFlash <= 0) player.material = matPlayer.clone();
+  }
+
+  // ─ Animate positions BEFORE collision detection ─
+  for (const obs of obstacles) {
+    if (!obs.userData.surprised) {
+      obs.position.y = obs.userData.baseY + Math.sin(clock.elapsedTime * 1.5 + obs.position.x) * 0.05;
+    }
+  }
+  for (const ene of enemies) {
+    if (!ene.userData.surprised) {
+      ene.position.y = ene.userData.baseY + Math.sin(clock.elapsedTime * 2.5 + ene.position.x) * 0.08;
+      ene.rotation.z = Math.sin(clock.elapsedTime * 3 + ene.position.x) * 0.05;
+      ene.material.emissiveIntensity = 0.2 + Math.sin(clock.elapsedTime * 4) * 0.15;
+    }
+  }
+  for (const inter of interactives) {
+    if (!inter.userData.flyingAway && !inter.userData.carrying) {
+      inter.position.y = inter.userData.originalY + Math.sin(clock.elapsedTime * 2 + inter.position.x * 0.5) * 0.08;
+      if (inter.userData.lightOn) {
+        inter.material.emissiveIntensity = 0.4 + Math.sin(clock.elapsedTime * 4) * 0.2;
+      }
+    }
+  }
+
+  // ─ Input ─
+  playerState.vx = 0;
+  if (keys['ArrowLeft'] || keys['KeyA']) playerState.vx = -MOVE_SPEED;
+  if (keys['ArrowRight'] || keys['KeyD']) playerState.vx = MOVE_SPEED;
+
+  // Jump buffer: remember press for a short window
+  if (justPressed['Space'] || justPressed['ArrowUp']) {
+    playerState.jumpBuffer = JUMP_BUFFER;
+  }
+  for (const k in justPressed) justPressed[k] = false;
+
+  // Coyote timer: grace period after leaving surface
+  if (playerState.grounded) {
+    playerState.coyoteTimer = COYOTE_TIME;
+  } else {
+    playerState.coyoteTimer -= dt;
+  }
+  playerState.jumpBuffer -= dt;
+
+  // Jump fires if: (recently grounded OR grounded) AND (recently pressed OR just pressed)
+  if (playerState.jumpBuffer > 0 && playerState.coyoteTimer > 0) {
+    executeJump();
+  }
+
+  // ─ Gravity ─
+  playerState.vy += GRAVITY * dt;
+  if (playerState.jumping && playerState.vy < 0) playerState.jumpRising = false;
+
+  // ─ Store previous Y for top-landing detection ─
+  playerState.prevY = player.position.y;
+
+  // ─ Move player ─
+  player.position.x += playerState.vx * dt;
+  player.position.y += playerState.vy * dt;
+
+  // ─ If carried, stick to platform ─
+  if (carriedPlatform && carriedPlatform.userData.carrying) {
+    player.position.x = carriedPlatform.position.x;
+    player.position.y = carriedPlatform.position.y + carriedPlatform.userData.h / 2 + PLAYER_SIZE / 2;
+  }
+
+  // ─ Collision resolution ─
+  playerState.grounded = false;
+
+  // Ground
+  if (player.position.y - PLAYER_SIZE / 2 <= GROUND_Y) {
+    const wasAirborne = playerState.vy < -1;
+    player.position.y = GROUND_Y + PLAYER_SIZE / 2;
+    if (playerState.vy < 0) {
+      if (wasAirborne) spawnDustBurst(player.position.x, GROUND_Y);
+      playerState.vy = 0;
+      playerState.jumping = false;
+      playerState.jumpRising = false;
+    }
+    playerState.grounded = true;
+    if (carriedPlatform) { carriedPlatform.userData.carrying = false; carriedPlatform = null; }
+  }
+
+  // ─ Dust trail while moving on any surface ─
+  if (playerState.grounded && Math.abs(playerState.vx) > 0) {
+    dustTrailTimer += dt;
+    if (dustTrailTimer >= DUST_TRAIL_INTERVAL) {
+      dustTrailTimer = 0;
+      spawnDustTrail(player.position.x, player.position.y - PLAYER_SIZE / 2);
+    }
+  } else if (!playerState.grounded) {
+    dustTrailTimer = 0;
+  }
+
+  // ─ Passive enemies (purple) ─
+  for (const obs of obstacles) {
+    const ow = obs.userData.w;
+    const oh = obs.userData.h;
+    const obsActualY = obs.position.y;
+    if (boxOverlap(player.position.x, player.position.y, PLAYER_SIZE * 0.9, PLAYER_SIZE, obs.position.x, obsActualY, ow, oh)) {
+      const obsTop = obsActualY + oh / 2;
+
+      if (playerState.vy <= 0 && isLandingOnTop(playerState.prevY, obsActualY, oh)) {
+        player.position.y = obsTop + PLAYER_SIZE / 2;
+        if (playerState.vy < -2 && !obs.userData.surprised) {
+          spawnEnemyLandFX(obs.position.x, obsTop);
+          obs.userData.surprised = true;
+          obs.scale.y = 0.6;
+          obs.scale.x = 1.4;
+          setTimeout(() => { obs.scale.y = 1; obs.scale.x = 1; obs.userData.surprised = false; }, 250);
+        }
+        playerState.vy = 0;
+        playerState.grounded = true;
+        playerState.jumping = false;
+
+        if (Math.abs(playerState.vx) > 0) {
+          dustTrailTimer += dt;
+          if (dustTrailTimer >= DUST_TRAIL_INTERVAL) {
+            dustTrailTimer = 0;
+            spawnDustTrail(player.position.x, obsTop);
+          }
+        }
+      } else {
+        if (player.position.x < obs.position.x) {
+          player.position.x = obs.position.x - ow / 2 - PLAYER_SIZE / 2;
+        } else {
+          player.position.x = obs.position.x + ow / 2 + PLAYER_SIZE / 2;
+        }
+      }
+    }
+  }
+
+  // ─ Harmful enemies (red) ─
+  for (const ene of enemies) {
+    const ew = ene.userData.w;
+    const eh = ene.userData.h;
+    const eneActualY = ene.position.y;
+    if (boxOverlap(player.position.x, player.position.y, PLAYER_SIZE * 0.9, PLAYER_SIZE, ene.position.x, eneActualY, ew, eh)) {
+      const eneTop = eneActualY + eh / 2;
+
+      if (playerState.vy <= 0 && isLandingOnTop(playerState.prevY, eneActualY, eh)) {
+        player.position.y = eneTop + PLAYER_SIZE / 2;
+        if (!ene.userData.surprised) {
+          spawnEnemyLandFX(ene.position.x, eneTop);
+          ene.userData.surprised = true;
+          ene.scale.y = 0.5;
+          ene.scale.x = 1.5;
+          setTimeout(() => { ene.scale.y = 1; ene.scale.x = 1; ene.userData.surprised = false; }, 300);
+        }
+        playerState.vy = JUMP_VEL * 0.5;
+        playerState.grounded = false;
+        playerState.jumping = true;
+      } else {
+        if (playerState.damageCooldown <= 0) {
+          playerState.hp--;
+          playerState.damageCooldown = DAMAGE_COOLDOWN;
+          playerState.hurtFlash = 0.5;
+          updateHealthUI();
+          spawnDamageEffect(player.position.x, player.position.y);
+          const knockDir = player.position.x < ene.position.x ? -1 : 1;
+          player.position.x += knockDir * 2;
+          playerState.vy = 6;
+        }
+        if (player.position.x < ene.position.x) {
+          player.position.x = ene.position.x - ew / 2 - PLAYER_SIZE / 2;
+        } else {
+          player.position.x = ene.position.x + ew / 2 + PLAYER_SIZE / 2;
+        }
+      }
+    }
+  }
+
+  // ─ Interactives ─
+  for (const inter of interactives) {
+    if (inter.userData.flyingAway) continue;
+    const iw = inter.userData.w;
+    const ih = inter.userData.h;
+    if (boxOverlap(player.position.x, player.position.y, PLAYER_SIZE * 0.9, PLAYER_SIZE, inter.position.x, inter.position.y, iw, ih)) {
+      const interTop = inter.position.y + ih / 2;
+
+      if (playerState.vy <= 0 && isLandingOnTop(playerState.prevY, inter.position.y, ih)) {
+        player.position.y = interTop + PLAYER_SIZE / 2;
+        playerState.vy = 0;
+        playerState.grounded = true;
+        playerState.jumping = false;
+        if (animToggles.interact && !inter.userData.carrying) {
+          inter.userData.carrying = true;
+          carriedPlatform = inter;
+          inter.scale.y = 0.8;
+          inter.scale.x = 1.2;
+          spawnDustBurst(inter.position.x, inter.position.y - ih / 2);
+        }
+      } else if (Math.abs(playerState.vx) > 0) {
+        if (animToggles.interact) {
+          inter.userData.lightOn = !inter.userData.lightOn;
+          if (inter.userData.lightOn) {
+            inter.material.emissive.setHex(0xfeca57);
+            inter.material.emissiveIntensity = 0.6;
+          } else {
+            inter.material.emissive.setHex(0x000000);
+            inter.material.emissiveIntensity = 0;
+          }
+          spawnLightToggle(inter.position.x, inter.position.y, inter.userData.lightOn);
+        }
+        if (player.position.x < inter.position.x) {
+          player.position.x = inter.position.x - iw / 2 - PLAYER_SIZE / 2;
+        } else {
+          player.position.x = inter.position.x + iw / 2 + PLAYER_SIZE / 2;
+        }
+      }
+    }
+  }
+
+  // ─ Buffered jump: if pressed while airborne, fire on landing ─
+  if (playerState.grounded && playerState.jumpBuffer > 0) {
+    executeJump();
+  }
+
+  // ─ Carrying vessel movement ─
+  if (carriedPlatform && carriedPlatform.userData.carrying) {
+    carriedPlatform.position.x += playerState.vx * dt * 0.5;
+    carriedPlatform.position.y = carriedPlatform.userData.originalY + Math.sin(clock.elapsedTime * 3) * 0.15;
+    carriedPlatform.scale.y += (1 - carriedPlatform.scale.y) * 0.1;
+    carriedPlatform.scale.x += (1 - carriedPlatform.scale.x) * 0.1;
+  }
+
+  // ─ Player visual ─
+  if (playerState.grounded) {
+    const squash = 1 + Math.abs(playerState.vx) * 0.01;
+    player.scale.x = 1 / squash;
+    player.scale.y = squash;
+  } else {
+    const stretch = 1 + Math.abs(playerState.vy) * 0.005;
+    player.scale.y = stretch;
+    player.scale.x = 1 / stretch;
+  }
+  player.rotation.z = -playerState.vx * 0.02;
+
+  // ─ Screen shake ─
+  if (screenShake > 0) {
+    screenShake -= dt;
+    const intensity = screenShake * 8;
+    camera.position.x += (player.position.x - camera.position.x) * 0.08 + (Math.random() - 0.5) * intensity;
+    camera.position.y = cameraBasePos.y + (Math.random() - 0.5) * intensity;
+  } else {
+    camera.position.x += (player.position.x - camera.position.x) * 0.08;
+    camera.position.y = cameraBasePos.y;
+  }
+
+  // ─ Update particles & birds ─
+  updateParticles(dt);
+  updateBirds(dt);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(update);
+}
+
+update();
+
+// ─── Resize ───
+window.addEventListener('resize', () => {
+  const w = window.innerWidth - 220;
+  const h = window.innerHeight;
+  renderer.setSize(w, h);
+  const a = w / h;
+  camera.left = -frustumH * a / 2;
+  camera.right = frustumH * a / 2;
+  camera.top = frustumH / 2;
+  camera.bottom = -frustumH / 2;
+  camera.updateProjectionMatrix();
+});
+</script>
+</body>
+</html>
