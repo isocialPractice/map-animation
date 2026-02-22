@@ -18,6 +18,14 @@ Source file for [jet.stl](https://free3d.com/3d-model/learjet-25-atlasjet-42833.
 
 A 2D canvas-based platformer demo with a sliding player character. Includes physics, animation, and a real-time toggle panel for enabling and disabling different mechanics.
 
+### jet-camera-position
+
+A Three.js 3D camera positioning tool for configuring starting and play-state camera angles on a jet model. Preview camera animations (zoom, rotate, pan) with adjustable parameters, toggle each effect independently, and export camera positions and animation configs as JSON for plugging into other game elements.
+
+### firework-burst-launch
+
+A pure SVG firework launcher controlled by keyboard. Aim a turret, adjust power, and fire fireworks into a starlit sky above a city skyline. Four procedural burst types -- Classic Bloom, Ring Halo, Star Scatter, and Willow Cascade -- with gravity-pulled particles and trailing afterglow.
+
 ## Running
 
 The root `index.html` is a launcher page that lists every element with a live preview and a link to open it. Serve the repo root with any static HTTP server and open `index.html` in a browser. No build step or package manager required.

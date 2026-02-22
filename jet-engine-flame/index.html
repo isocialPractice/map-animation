@@ -184,9 +184,9 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { STLLoader }     from 'three/addons/loaders/STLLoader.js';
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  RENDERER
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -196,9 +196,9 @@
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  SCENE & CAMERA
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x080c18);
     scene.fog        = new THREE.FogExp2(0x080c18, 0.018);
@@ -214,9 +214,9 @@
     orbitControls.target.set(0, 0, 0);
     orbitControls.saveState();
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  LIGHTING
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     scene.add(new THREE.AmbientLight(0x2a3d5a, 1.2));
 
     const sun = new THREE.DirectionalLight(0xffffff, 2.5);
@@ -234,18 +234,18 @@
     const engineGlow = new THREE.PointLight(0xff5500, 0, 4, 2);
     scene.add(engineGlow);
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  GRID
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const grid = new THREE.GridHelper(30, 30, 0x1a2a44, 0x0d1a2e);
     grid.position.y = -2;
     scene.add(grid);
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  ANIMATION STATE  (JSON source of truth)
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const animationState = {
-      version: '1.0', model: 'jet.stl', animations: [],
+      version: '1.0', model: '../assets/jet.stl', animations: [],
       scene: { engineGlow: { color: '#ff5500', intensity: 3, distance: 4 } },
     };
 
@@ -265,9 +265,9 @@
       rec.transform.scale = { x: r3(g.scale.x), y: r3(g.scale.y), z: r3(g.scale.z) };
     }
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  FLAME DRAWING  (canvas-based SVG-style animation)
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const CANVAS_W = 128, CANVAS_H = 256;
     let flameActive = false, flameTime = 0;
 
@@ -303,13 +303,17 @@
       canvas.width = CANVAS_W; canvas.height = CANVAS_H;
       const ctx = canvas.getContext('2d');
       const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({
+      // PlaneGeometry instead of Sprite so the mesh inherits the entity group's
+      // rotation; a per-frame cylindrical billboard keeps it camera-facing while
+      // locking the height axis to the group's local Y (exhaust direction).
+      const mat = new THREE.MeshBasicMaterial({
         map: tex, transparent: true, depthWrite: false,
-        blending: THREE.AdditiveBlending, sizeAttenuation: true,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       });
-      const sprite = new THREE.Sprite(mat);
-      sprite.userData = { canvas, ctx, phase: Math.random() * Math.PI * 2 };
-      return sprite;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      mesh.renderOrder = 2;
+      mesh.userData = { canvas, ctx, phase: Math.random() * Math.PI * 2 };
+      return mesh;
     }
 
     function updateFlames(dt) {
@@ -324,12 +328,34 @@
       }
     }
 
-    // ═══════════════════════════════════════════════════
+    // Cylindrical billboard: each frame rotate every flame plane around the
+    // entity's local Y axis so it faces the camera, while keeping local Y
+    // (the exhaust / height axis) locked to the group's current orientation.
+    // Runs every frame — even when flames are off — so toggling them on never
+    // shows a stale orientation.
+    const _localCam = new THREE.Vector3();
+    const _toCam    = new THREE.Vector3();
+
+    function billboardFlames() {
+      for (const ent of flameEntities) {
+        // Camera in entity's local space (avoids per-sprite matrix inversion)
+        ent.group.worldToLocal(_localCam.copy(camera.position));
+        for (const s of ent.sprites) {
+          _toCam.copy(_localCam).sub(s.position);
+          _toCam.y = 0;  // project onto local XZ — keeps local Y as height axis
+          if (_toCam.lengthSq() > 1e-6) _toCam.normalize();
+          else _toCam.set(0, 0, 1);
+          s.rotation.set(0, Math.atan2(_toCam.x, _toCam.z), 0);
+        }
+      }
+    }
+
+    // ---------------------------------------------------
     //  ENGINE FLAME ENTITY
     //  Each engine is a THREE.Group (direct scene child).
     //  Sprites toggle individually so hitMesh + outline
     //  remain accessible whether flames are on or off.
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const flameEntities = [];
 
     function makeEngineFlame(position, flameScale, id, label, stateIdx) {
@@ -378,6 +404,7 @@
       );
       outline.computeLineDistances();
       outline.position.y = bbYOff;
+      outline.renderOrder = 1;          // below sprites (renderOrder 2), above scene
       outline.visible = false;          // hidden until selected
       group.add(outline);
 
@@ -399,9 +426,9 @@
       return entity;
     }
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  SELECTION STATE
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     let selectedEntity = null;
     let hoverEntity    = null;
     let transformMode  = 'translate';
@@ -417,7 +444,6 @@
       ent.outline.visible = true;
       ent.indicator.material.color.setHex(0x0099ff);
       ent.indicator.material.opacity = 1.0;
-      orbitControls.enabled = false;    // ← lock camera while editing
       labelEl.textContent = ent.label;
       toolbarEl.classList.add('visible');
       positionTransformer();
@@ -430,7 +456,6 @@
       selectedEntity.indicator.material.color.setHex(0x224466);
       selectedEntity.indicator.material.opacity = 0.55;
       selectedEntity = null;
-      orbitControls.enabled = true;     // ← unlock camera when done
       transformerGroup.visible = false;
       handleHitMeshes.length   = 0;
       hoverHandle = null;
@@ -444,7 +469,7 @@
       if (selectedEntity) buildTransformer();
     }
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  TRANSFORMER GIZMOS
     //
     //  Three handle types that appear on the selected entity
@@ -457,7 +482,7 @@
     //
     //  All handles are children of `transformerGroup` which
     //  is repositioned each frame to follow the entity.
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
 
     // Axis colour tables
     const TC = {
@@ -597,11 +622,18 @@
       const localOff = new THREE.Vector3(0, selectedEntity.bbYOff, 0);
       localOff.applyQuaternion(selectedEntity.group.quaternion);
       transformerGroup.position.copy(wp).add(localOff);
+      // Scale handles must align with local axes (group.scale is local-space).
+      // Rotate/translate handles stay world-aligned so rings/arrows represent world axes.
+      if (transformMode === 'scale') {
+        transformerGroup.quaternion.copy(selectedEntity.group.quaternion);
+      } else {
+        transformerGroup.quaternion.set(0, 0, 0, 1);
+      }
     }
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  DRAG STATE
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const drag = {
       active: false, axis: null, mode: null, pointerId: null,
       plane:      new THREE.Plane(),
@@ -612,6 +644,7 @@
       entityPos:  new THREE.Vector3(),  // world-space pivot at drag start
       startX:     0,                   // client X at rotate drag start
       startQuat:  new THREE.Quaternion(), // quaternion snapshot for rotate
+      axisVec:    null,                // resolved axis direction (world for translate/rotate, local-in-world for scale)
     };
 
     const _aVecs = {
@@ -653,9 +686,14 @@
 
     // ── Start drag on a handle ────────────────────────────────
     function startDrag(e, hit) {
+      orbitControls.enabled = false;   // lock camera for this drag only; re-enabled in endDrag
       const axis    = hit.userData.axis;
       const mode    = hit.userData.mode;
-      const axisVec = _aVecs[axis];
+      // Scale modifies group.scale[axis] (local space) so project onto the local axis.
+      // Translate/rotate keep world-space axes so gizmo rings/arrows stay world-aligned.
+      const axisVec = mode === 'scale'
+        ? _aVecs[axis].clone().applyQuaternion(selectedEntity.group.quaternion)
+        : _aVecs[axis];
       const ep      = transformerGroup.position.clone();
 
       drag.entityPos.copy(ep);
@@ -679,6 +717,7 @@
       drag.active    = true;
       drag.axis      = axis;
       drag.mode      = mode;
+      drag.axisVec   = axisVec;
       drag.pointerId = e.pointerId;
       drag.startPos.copy(selectedEntity.group.position);
       drag.startRot.copy(selectedEntity.group.rotation);
@@ -694,7 +733,7 @@
     function updateDrag(e) {
       if (!drag.active || !selectedEntity) return;
 
-      const axisVec = _aVecs[drag.axis];
+      const axisVec = drag.axisVec ?? _aVecs[drag.axis];
 
       // Rotate uses screen-space delta — skip plane intersection entirely
       if (drag.mode === 'rotate') {
@@ -730,6 +769,7 @@
     function endDrag() {
       if (!drag.active) return;
       drag.active = false;
+      orbitControls.enabled = true;    // restore camera once handle is released
       if (drag.pointerId !== null) {
         try { renderer.domElement.releasePointerCapture(drag.pointerId); } catch (_) {}
         drag.pointerId = null;
@@ -745,9 +785,9 @@
       });
     }
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  POINTER EVENTS
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     let ptrDown = { x: 0, y: 0 };
 
     renderer.domElement.addEventListener('pointerdown', e => {
@@ -824,14 +864,14 @@
 
     renderer.domElement.addEventListener('pointercancel', endDrag);
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  STL LOADER
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const loaderEl  = document.getElementById('loader');
     const loaderBar = document.getElementById('loader-bar');
     const loaderMsg = document.getElementById('loader-msg');
 
-    new STLLoader().load('jet.stl',
+    new STLLoader().load('../assets/jet.stl',
       (geometry) => {
         loaderMsg.textContent = 'Building scene…';
         loaderBar.style.width = '100%';
@@ -913,9 +953,9 @@
       }
     );
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  EXPORT
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     function exportJSON() {
       flameEntities.forEach(syncToState);
       const payload = {
@@ -943,9 +983,9 @@
     document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
     document.getElementById('deselect-btn').addEventListener('click', deselectAll);
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  KEY CONTROLS
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const badge = document.getElementById('badge');
 
     function toggleFlames(active) {
@@ -970,18 +1010,18 @@
       }
     });
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  RESIZE
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     //  RENDER LOOP
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     const clock = new THREE.Clock();
 
     (function animate() {
@@ -989,6 +1029,7 @@
       const dt = clock.getDelta();
 
       orbitControls.update();
+      billboardFlames();                  // orient planes toward camera every frame
       if (flameActive) updateFlames(dt);
 
       if (selectedEntity) {

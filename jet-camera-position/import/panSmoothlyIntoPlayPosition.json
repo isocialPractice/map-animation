@@ -1,0 +1,6 @@
+{
+  "duration": 1.8,
+  "easing": "easeInOutCubic",
+  "targetOffset": { "x": 0.5, "y": -0.3, "z": 0 },
+  "delay": 0.5
+}

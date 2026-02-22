@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Firework Burst Launch</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a1a; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+  #hud {
+    position: fixed;
+    left: 20px; top: 20px;
+    color: #7f8fa6;
+    font-size: 12px;
+    z-index: 10;
+    pointer-events: none;
+    line-height: 1.8;
+  }
+  #hud .key { color: #64c8ff; font-weight: 600; }
+
+  #type-panel {
+    position: fixed;
+    right: 0; top: 0;
+    width: 200px; height: 100vh;
+    background: rgba(10, 10, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column;
+    padding: 20px 14px;
+    gap: 10px;
+    z-index: 10;
+  }
+  #type-panel h3 {
+    color: #7f8fa6;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .type-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: left;
+    line-height: 1.4;
+  }
+  .type-btn.active {
+    background: rgba(232, 101, 43, 0.15);
+    border-color: rgba(232, 101, 43, 0.5);
+    color: #e8652b;
+    box-shadow: 0 0 12px rgba(232, 101, 43, 0.1);
+  }
+  .type-btn:hover { background: rgba(255,255,255,0.08); }
+  .type-btn .indicator {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #555;
+    margin-right: 8px;
+    transition: background 0.25s;
+  }
+  .type-btn.active .indicator { background: #e8652b; box-shadow: 0 0 6px #e8652b; }
+
+  #aim-info {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.3);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div><span class="key">LEFT / RIGHT</span> &mdash; Aim launcher</div>
+  <div><span class="key">SPACE</span> &mdash; Launch firework</div>
+  <div><span class="key">1-4</span> &mdash; Change burst type</div>
+  <div><span class="key">UP / DOWN</span> &mdash; Adjust power</div>
+</div>
+
+<div id="type-panel">
+  <h3>Burst Type</h3>
+  <button class="type-btn active" id="btn-1" onclick="selectType(0)">
+    <span class="indicator"></span>Classic Bloom
+  </button>
+  <button class="type-btn" id="btn-2" onclick="selectType(1)">
+    <span class="indicator"></span>Ring Halo
+  </button>
+  <button class="type-btn" id="btn-3" onclick="selectType(2)">
+    <span class="indicator"></span>Star Scatter
+  </button>
+  <button class="type-btn" id="btn-4" onclick="selectType(3)">
+    <span class="indicator"></span>Willow Cascade
+  </button>
+</div>
+
+<div id="aim-info">aim &amp; fire</div>
+
+<svg id="sky" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+// ─── Setup ───
+const svg = document.getElementById('sky');
+const W = () => window.innerWidth - 200;
+const H = () => window.innerHeight;
+
+function resizeSVG() {
+  svg.setAttribute('width', W());
+  svg.setAttribute('height', H());
+  svg.setAttribute('viewBox', `0 0 ${W()} ${H()}`);
+}
+resizeSVG();
+window.addEventListener('resize', resizeSVG);
+
+// ─── Stars background ───
+function createStars() {
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    star.setAttribute('cx', Math.random() * W());
+    star.setAttribute('cy', Math.random() * H() * 0.85);
+    star.setAttribute('r', 0.4 + Math.random() * 1.2);
+    star.setAttribute('fill', '#ffffff');
+    star.setAttribute('opacity', 0.1 + Math.random() * 0.4);
+    star.classList.add('bg-star');
+    svg.appendChild(star);
+  }
+}
+createStars();
+
+// ─── Launcher ───
+let launcherAngle = -Math.PI / 2; // straight up
+let launcherPower = 0.7; // 0..1
+let currentType = 0;
+const TYPE_NAMES = ['classic', 'ring', 'star', 'willow'];
+const LAUNCH_COOLDOWN = 0.3;
+let launchTimer = 0;
+
+// Launcher graphics
+const launcherGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+svg.appendChild(launcherGroup);
+
+function drawLauncher() {
+  while (launcherGroup.firstChild) launcherGroup.removeChild(launcherGroup.firstChild);
+  const cx = W() / 2;
+  const cy = H() - 30;
+  const len = 40 + launcherPower * 30;
+  const ex = cx + Math.cos(launcherAngle) * len;
+  const ey = cy + Math.sin(launcherAngle) * len;
+
+  // Base
+  const base = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  base.setAttribute('x', cx - 12);
+  base.setAttribute('y', cy - 4);
+  base.setAttribute('width', 24);
+  base.setAttribute('height', 12);
+  base.setAttribute('rx', 3);
+  base.setAttribute('fill', '#3d4a5a');
+  base.setAttribute('stroke', '#556677');
+  base.setAttribute('stroke-width', '1');
+  launcherGroup.appendChild(base);
+
+  // Barrel
+  const barrel = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  barrel.setAttribute('x1', cx);
+  barrel.setAttribute('y1', cy);
+  barrel.setAttribute('x2', ex);
+  barrel.setAttribute('y2', ey);
+  barrel.setAttribute('stroke', '#8899aa');
+  barrel.setAttribute('stroke-width', '4');
+  barrel.setAttribute('stroke-linecap', 'round');
+  launcherGroup.appendChild(barrel);
+
+  // Tip glow
+  const tip = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  tip.setAttribute('cx', ex);
+  tip.setAttribute('cy', ey);
+  tip.setAttribute('r', 3);
+  tip.setAttribute('fill', '#e8652b');
+  tip.setAttribute('opacity', '0.8');
+  launcherGroup.appendChild(tip);
+
+  // Power bar
+  const barBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  barBg.setAttribute('x', cx - 30);
+  barBg.setAttribute('y', cy + 14);
+  barBg.setAttribute('width', 60);
+  barBg.setAttribute('height', 4);
+  barBg.setAttribute('rx', 2);
+  barBg.setAttribute('fill', 'rgba(255,255,255,0.1)');
+  launcherGroup.appendChild(barBg);
+
+  const barFill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  barFill.setAttribute('x', cx - 30);
+  barFill.setAttribute('y', cy + 14);
+  barFill.setAttribute('width', 60 * launcherPower);
+  barFill.setAttribute('height', 4);
+  barFill.setAttribute('rx', 2);
+  barFill.setAttribute('fill', '#e8652b');
+  barFill.setAttribute('opacity', '0.7');
+  launcherGroup.appendChild(barFill);
+}
+
+// ─── Color palettes ───
+const PALETTES = [
+  ['#ff4444', '#ff8844', '#ffcc44', '#ffff88', '#ffffff'],
+  ['#64c8ff', '#44aaff', '#8854d0', '#a55eea', '#ff9ff3'],
+  ['#44ff88', '#88ff44', '#ffff44', '#ff8844', '#ffffff'],
+  ['#ff55aa', '#ff88cc', '#ffaaee', '#ffddff', '#ffffff'],
+  ['#e8652b', '#ff9944', '#ffcc66', '#ffee88', '#ffffff'],
+  ['#44ddff', '#88eeff', '#aaffee', '#44ff99', '#ffffff'],
+];
+
+function randomPalette() {
+  return PALETTES[Math.floor(Math.random() * PALETTES.length)];
+}
+
+// ─── Firework state ───
+const rockets = [];
+const bursts = [];
+const trails = [];
+
+// ─── Launch ───
+function launchFirework() {
+  if (launchTimer > 0) return;
+  launchTimer = LAUNCH_COOLDOWN;
+
+  const cx = W() / 2;
+  const cy = H() - 30;
+  const speed = 400 + launcherPower * 350;
+  const vx = Math.cos(launcherAngle) * speed;
+  const vy = Math.sin(launcherAngle) * speed;
+
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  el.setAttribute('cx', cx);
+  el.setAttribute('cy', cy);
+  el.setAttribute('r', 3);
+  el.setAttribute('fill', '#ffcc44');
+  svg.appendChild(el);
+
+  rockets.push({
+    el,
+    x: cx, y: cy,
+    vx, vy,
+    age: 0,
+    fuseTime: 0.6 + launcherPower * 0.5,
+    type: currentType,
+    palette: randomPalette(),
+    trailTimer: 0
+  });
+}
+
+// ─── Burst generators ───
+function spawnClassicBloom(x, y, palette) {
+  const count = 50 + Math.floor(Math.random() * 30);
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+    const speed = 80 + Math.random() * 180;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', x);
+    el.setAttribute('cy', y);
+    el.setAttribute('r', 1.5 + Math.random() * 2);
+    el.setAttribute('fill', color);
+    svg.appendChild(el);
+    bursts.push({
+      el, x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      age: 0,
+      life: 1.2 + Math.random() * 0.8,
+      gravity: 50 + Math.random() * 30,
+      type: 'particle',
+      trailTimer: 0
+    });
+  }
+}
+
+function spawnRingHalo(x, y, palette) {
+  const rings = 2 + Math.floor(Math.random() * 2);
+  for (let r = 0; r < rings; r++) {
+    const count = 30 + Math.floor(Math.random() * 20);
+    const baseSpeed = 100 + r * 70;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = baseSpeed + (Math.random() - 0.5) * 20;
+      const color = palette[(i + r) % palette.length];
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      el.setAttribute('cx', x);
+      el.setAttribute('cy', y);
+      el.setAttribute('r', 1.5 + Math.random());
+      el.setAttribute('fill', color);
+      svg.appendChild(el);
+      bursts.push({
+        el, x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        age: r * 0.15,
+        life: 1.0 + Math.random() * 0.6,
+        gravity: 25,
+        type: 'particle',
+        trailTimer: 0
+      });
+    }
+  }
+  // Center flash
+  const flash = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  flash.setAttribute('cx', x);
+  flash.setAttribute('cy', y);
+  flash.setAttribute('r', 8);
+  flash.setAttribute('fill', '#ffffff');
+  svg.appendChild(flash);
+  bursts.push({
+    el: flash, x, y, vx: 0, vy: 0,
+    age: 0, life: 0.3, gravity: 0, type: 'flash'
+  });
+}
+
+function spawnStarScatter(x, y, palette) {
+  const arms = 5;
+  const perArm = 12;
+  for (let a = 0; a < arms; a++) {
+    const baseAngle = (Math.PI * 2 * a) / arms - Math.PI / 2;
+    for (let i = 0; i < perArm; i++) {
+      const speed = 60 + i * 18;
+      const jitter = (Math.random() - 0.5) * 0.15;
+      const color = palette[i % palette.length];
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      el.setAttribute('cx', x);
+      el.setAttribute('cy', y);
+      el.setAttribute('r', 2 + Math.random() * 1.5);
+      el.setAttribute('fill', color);
+      svg.appendChild(el);
+      bursts.push({
+        el, x, y,
+        vx: Math.cos(baseAngle + jitter) * speed,
+        vy: Math.sin(baseAngle + jitter) * speed,
+        age: 0,
+        life: 1.0 + Math.random() * 0.5,
+        gravity: 35,
+        type: 'particle',
+        trailTimer: 0
+      });
+    }
+  }
+  // Cross sparkle at center
+  for (let i = 0; i < arms; i++) {
+    const a = (Math.PI * 2 * i) / arms - Math.PI / 2;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x);
+    line.setAttribute('y1', y);
+    line.setAttribute('x2', x + Math.cos(a) * 25);
+    line.setAttribute('y2', y + Math.sin(a) * 25);
+    line.setAttribute('stroke', '#ffffff');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+    bursts.push({
+      el: line, x, y, vx: 0, vy: 0,
+      age: 0, life: 0.25, gravity: 0, type: 'line-flash'
+    });
+  }
+}
+
+function spawnWillowCascade(x, y, palette) {
+  const count = 40 + Math.floor(Math.random() * 20);
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+    const speed = 50 + Math.random() * 100;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', x);
+    el.setAttribute('cy', y);
+    el.setAttribute('r', 1 + Math.random() * 1.5);
+    el.setAttribute('fill', color);
+    svg.appendChild(el);
+    bursts.push({
+      el, x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      age: 0,
+      life: 2.0 + Math.random() * 1.5,
+      gravity: 100 + Math.random() * 40,
+      type: 'willow',
+      trailTimer: 0
+    });
+  }
+}
+
+const BURST_FN = [spawnClassicBloom, spawnRingHalo, spawnStarScatter, spawnWillowCascade];
+
+// ─── Trail particles (faint afterimages) ───
+function spawnTrail(x, y, color, size) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  el.setAttribute('cx', x);
+  el.setAttribute('cy', y);
+  el.setAttribute('r', size);
+  el.setAttribute('fill', color);
+  el.setAttribute('opacity', '0.4');
+  svg.appendChild(el);
+  trails.push({ el, age: 0, life: 0.4 + Math.random() * 0.2 });
+}
+
+// ─── Input ───
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') { launchFirework(); e.preventDefault(); }
+  if (e.code === 'Digit1' || e.code === 'Numpad1') selectType(0);
+  if (e.code === 'Digit2' || e.code === 'Numpad2') selectType(1);
+  if (e.code === 'Digit3' || e.code === 'Numpad3') selectType(2);
+  if (e.code === 'Digit4' || e.code === 'Numpad4') selectType(3);
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+window.selectType = function(idx) {
+  currentType = idx;
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('btn-' + (i + 1)).classList.toggle('active', i === idx);
+  }
+};
+
+// ─── Skyline silhouette ───
+function drawSkyline() {
+  const skyline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const w = W();
+  const h = H();
+  const baseY = h - 10;
+  let d = `M0,${h}`;
+  let x = 0;
+  while (x < w) {
+    const bw = 20 + Math.random() * 40;
+    const bh = 15 + Math.random() * 60;
+    d += ` L${x},${baseY} L${x},${baseY - bh}`;
+    // windows
+    x += bw;
+    d += ` L${x},${baseY - bh} L${x},${baseY}`;
+  }
+  d += ` L${w},${h} Z`;
+  skyline.setAttribute('d', d);
+  skyline.setAttribute('fill', '#0f0f25');
+  skyline.setAttribute('stroke', '#1a1a3a');
+  skyline.setAttribute('stroke-width', '1');
+  skyline.id = 'skyline';
+  svg.appendChild(skyline);
+}
+drawSkyline();
+
+// ─── Ground line ───
+const groundLine = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+groundLine.setAttribute('x', 0);
+groundLine.setAttribute('y', H() - 10);
+groundLine.setAttribute('width', W());
+groundLine.setAttribute('height', 10);
+groundLine.setAttribute('fill', '#0d0d20');
+svg.appendChild(groundLine);
+
+// ─── Update loop ───
+let lastTime = performance.now();
+let twinkleTime = 0;
+
+function update(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  // ─ Input ─
+  const aimSpeed = 1.5;
+  if (keys['ArrowLeft'] || keys['KeyA']) launcherAngle -= aimSpeed * dt;
+  if (keys['ArrowRight'] || keys['KeyD']) launcherAngle += aimSpeed * dt;
+  launcherAngle = Math.max(-Math.PI + 0.2, Math.min(-0.2, launcherAngle));
+
+  if (keys['ArrowUp'] || keys['KeyW']) launcherPower = Math.min(1, launcherPower + 0.8 * dt);
+  if (keys['ArrowDown'] || keys['KeyS']) launcherPower = Math.max(0.2, launcherPower - 0.8 * dt);
+
+  if (launchTimer > 0) launchTimer -= dt;
+
+  // ─ Update rockets ─
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i];
+    r.age += dt;
+    r.vy += 80 * dt; // slight gravity drag on rocket
+    r.x += r.vx * dt;
+    r.y += r.vy * dt;
+
+    r.el.setAttribute('cx', r.x);
+    r.el.setAttribute('cy', r.y);
+
+    // Rocket trail
+    r.trailTimer += dt;
+    if (r.trailTimer > 0.02) {
+      r.trailTimer = 0;
+      spawnTrail(r.x + (Math.random() - 0.5) * 3, r.y + (Math.random() - 0.5) * 3, '#ffcc44', 1.5);
+    }
+
+    // Detonate
+    if (r.age >= r.fuseTime || r.y < 30) {
+      r.el.remove();
+      BURST_FN[r.type](r.x, r.y, r.palette);
+      rockets.splice(i, 1);
+    }
+  }
+
+  // ─ Update bursts ─
+  for (let i = bursts.length - 1; i >= 0; i--) {
+    const b = bursts[i];
+    b.age += dt;
+    if (b.age >= b.life) {
+      b.el.remove();
+      bursts.splice(i, 1);
+      continue;
+    }
+    const t = b.age / b.life;
+
+    if (b.type === 'particle' || b.type === 'willow') {
+      b.vy += (b.gravity || 50) * dt;
+      b.vx *= (b.type === 'willow' ? 0.995 : 0.998);
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.el.setAttribute('cx', b.x);
+      b.el.setAttribute('cy', b.y);
+      const fade = b.type === 'willow' ? Math.pow(1 - t, 0.5) : (1 - t * t);
+      b.el.setAttribute('opacity', fade);
+      const shrink = Math.max(0.3, 1 - t * 0.6);
+      b.el.setAttribute('r', parseFloat(b.el.getAttribute('r')) > 0 ? shrink * 2.5 : 0);
+
+      // Spawn sub-trails for willow
+      if (b.type === 'willow') {
+        b.trailTimer = (b.trailTimer || 0) + dt;
+        if (b.trailTimer > 0.06 && t < 0.7) {
+          b.trailTimer = 0;
+          spawnTrail(b.x, b.y, b.el.getAttribute('fill'), 0.8);
+        }
+      } else if (b.type === 'particle') {
+        b.trailTimer = (b.trailTimer || 0) + dt;
+        if (b.trailTimer > 0.08 && t < 0.5) {
+          b.trailTimer = 0;
+          spawnTrail(b.x, b.y, b.el.getAttribute('fill'), 0.6);
+        }
+      }
+    } else if (b.type === 'flash') {
+      const r = 8 + t * 30;
+      b.el.setAttribute('r', r);
+      b.el.setAttribute('opacity', 1 - t);
+    } else if (b.type === 'line-flash') {
+      b.el.setAttribute('opacity', 1 - t * t);
+      b.el.setAttribute('stroke-width', Math.max(0.3, 2 * (1 - t)));
+    }
+  }
+
+  // ─ Update trails ─
+  for (let i = trails.length - 1; i >= 0; i--) {
+    const tr = trails[i];
+    tr.age += dt;
+    if (tr.age >= tr.life) {
+      tr.el.remove();
+      trails.splice(i, 1);
+      continue;
+    }
+    tr.el.setAttribute('opacity', 0.4 * (1 - tr.age / tr.life));
+  }
+
+  // ─ Star twinkle ─
+  twinkleTime += dt;
+  if (twinkleTime > 0.3) {
+    twinkleTime = 0;
+    const stars = svg.querySelectorAll('.bg-star');
+    if (stars.length > 0) {
+      const idx = Math.floor(Math.random() * stars.length);
+      const star = stars[idx];
+      const baseOp = parseFloat(star.getAttribute('opacity'));
+      star.setAttribute('opacity', Math.min(1, baseOp + 0.3));
+      setTimeout(() => star.setAttribute('opacity', baseOp), 200);
+    }
+  }
+
+  drawLauncher();
+  requestAnimationFrame(update);
+}
+
+requestAnimationFrame(update);
+</script>
+</body>
+</html>

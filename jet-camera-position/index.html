@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jet Camera Position — Three.js Demo</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #080c18;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    canvas { display: block; }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed; top: 18px; left: 18px;
+      color: #7a9fcc; font-size: 11px; line-height: 2;
+      pointer-events: none; user-select: none; z-index: 100;
+    }
+    #hud .key  { color: #d0dcf4; background: #1a2a44; padding: 1px 5px; border-radius: 3px; }
+    #hud .desc { color: #3a6a99; }
+    #hud .sep  { height: 1px; background: #0e1e32; margin: 4px 0; }
+    #hud .dim  { color: #2a4a66; font-size: 10px; }
+
+    /* ── Top controls group ── */
+    #top-controls {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px;
+      z-index: 200; white-space: nowrap;
+    }
+
+    /* ── Start Level button ── */
+    #start-btn {
+      padding: 7px 18px;
+      background: rgba(232, 101, 43, 0.15); border: 1px solid #e8652b;
+      border-radius: 4px; color: #e8652b;
+      font: bold 11px/1 'Courier New', monospace;
+      letter-spacing: 2px; text-transform: uppercase;
+      cursor: pointer; user-select: none;
+      transition: background 0.25s, box-shadow 0.25s, color 0.25s;
+    }
+    #start-btn:hover {
+      background: rgba(232, 101, 43, 0.3);
+      box-shadow: 0 0 14px rgba(232, 101, 43, 0.25);
+      color: #ff9966;
+    }
+    #start-btn:active { background: rgba(232, 101, 43, 0.45); }
+    #start-btn.playing {
+      border-color: #22aa66; color: #44ddaa;
+      background: rgba(34, 170, 102, 0.12);
+      pointer-events: none;
+    }
+
+    /* ── Export camera buttons ── */
+    .cam-export-btn {
+      padding: 6px 12px;
+      background: rgba(8, 18, 36, 0.88); border: 1px solid #1e3854; border-radius: 4px;
+      color: #5a90c4; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+      user-select: none; backdrop-filter: blur(6px);
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+    .cam-export-btn:hover {
+      border-color: #3a78bb; color: #99ccee;
+      box-shadow: 0 0 12px rgba(50, 110, 190, 0.2);
+    }
+    .cam-export-btn.exported {
+      border-color: #22aa66; color: #44ddaa;
+      box-shadow: 0 0 12px rgba(34, 170, 102, 0.25);
+    }
+    .cam-export-btn.hidden {
+      display: none;
+    }
+
+    /* ── Reset button ── */
+    #reset-btn {
+      position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
+      padding: 4px 12px;
+      background: rgba(8, 18, 36, 0.88); border: 1px solid #1e3854; border-radius: 4px;
+      color: #3a6a99; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      z-index: 200; user-select: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    #reset-btn:hover { border-color: #3a78bb; color: #99ccee; }
+
+    /* ── Animation panels (right side) ── */
+    #panels {
+      position: fixed; top: 14px; right: 14px;
+      width: 270px; max-height: calc(100vh - 28px);
+      overflow-y: auto; z-index: 200;
+      display: flex; flex-direction: column; gap: 6px;
+      scrollbar-width: thin; scrollbar-color: #1a2a44 transparent;
+    }
+    #panels::-webkit-scrollbar { width: 4px; }
+    #panels::-webkit-scrollbar-thumb { background: #1a2a44; border-radius: 2px; }
+
+    .anim-panel {
+      background: rgba(6, 12, 24, 0.92);
+      border: 1px solid #152030; border-radius: 5px;
+      backdrop-filter: blur(8px);
+    }
+
+    .panel-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; cursor: pointer; user-select: none;
+    }
+    .panel-arrow {
+      color: #3a6a99; font-size: 10px; transition: transform 0.2s;
+      width: 10px; text-align: center;
+    }
+    .panel-arrow.open { transform: rotate(90deg); }
+    .panel-title {
+      flex: 1; color: #5a90c4; font-size: 10px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+
+    /* Toggle switch */
+    .toggle-wrap {
+      position: relative; width: 30px; height: 16px; cursor: pointer;
+    }
+    .toggle-wrap input { display: none; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: #1a2a44; border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .toggle-slider::after {
+      content: ''; position: absolute;
+      left: 2px; top: 2px; width: 12px; height: 12px;
+      background: #3a6a99; border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-wrap input:checked + .toggle-slider { background: rgba(34, 170, 102, 0.3); }
+    .toggle-wrap input:checked + .toggle-slider::after {
+      transform: translateX(14px); background: #22aa66;
+    }
+
+    .panel-body {
+      display: none; padding: 4px 10px 10px;
+      border-top: 1px solid #0e1a28;
+    }
+    .panel-body.open { display: block; }
+
+    .form-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 6px 0; gap: 6px;
+    }
+    .form-row label {
+      color: #3a6a99; font-size: 10px; letter-spacing: 0.5px;
+      white-space: nowrap; min-width: 70px;
+    }
+    .form-row input[type="number"],
+    .form-row select {
+      flex: 1; max-width: 100px;
+      background: #0a1422; border: 1px solid #1e3854; border-radius: 3px;
+      color: #7ab0dd; font: 10px/1 'Courier New', monospace;
+      padding: 4px 6px; outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-row input[type="number"]:focus,
+    .form-row select:focus { border-color: #3a78bb; }
+    .form-row select { max-width: 110px; }
+
+    .form-row input[type="range"] {
+      flex: 1; max-width: 80px; height: 3px;
+      -webkit-appearance: none; appearance: none;
+      background: #1a2a44; border-radius: 2px; outline: none;
+    }
+    .form-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px;
+      background: #5a90c4; border-radius: 50%; cursor: pointer;
+      border: 1px solid #3a78bb;
+    }
+    .range-val {
+      color: #5a90c4; font-size: 10px; min-width: 32px; text-align: right;
+    }
+
+    .form-divider {
+      height: 1px; background: #0e1a28; margin: 8px 0;
+    }
+
+    .export-anim-btn {
+      width: 100%; padding: 6px 10px; margin-top: 6px;
+      background: rgba(8, 18, 36, 0.7); border: 1px solid #1e3854; border-radius: 3px;
+      color: #5a90c4; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+    .export-anim-btn:hover {
+      border-color: #3a78bb; color: #99ccee;
+      box-shadow: 0 0 10px rgba(50, 110, 190, 0.2);
+    }
+    .export-anim-btn.exported {
+      border-color: #22aa66; color: #44ddaa;
+      box-shadow: 0 0 12px rgba(34, 170, 102, 0.25);
+    }
+
+    /* ── Camera info readout ── */
+    #camera-info {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      font: 10px/1 'Courier New', monospace; color: #1e3a55; letter-spacing: 0.5px;
+      pointer-events: none; white-space: nowrap; z-index: 100;
+    }
+    #camera-info .lbl { color: #1e5577; margin-right: 3px; }
+    #camera-info .val { color: #3a7799; }
+    #camera-info .seg { margin: 0 10px; color: #0e2030; }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #080c18; color: #4a7aaa; font-size: 13px; letter-spacing: 3px; gap: 16px;
+      z-index: 500; transition: opacity 0.6s;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader-bar-wrap { width: 200px; height: 2px; background: #1a2a44; border-radius: 2px; overflow: hidden; }
+    #loader-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #2255aa, #55aaff); transition: width 0.3s; }
+    #loader-msg { color: #6a8fbb; font-size: 11px; }
+
+    /* ── Animation state badge ── */
+    #anim-badge {
+      position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+      color: #2a5577; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      pointer-events: none; white-space: nowrap; z-index: 100;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #anim-badge.on { opacity: 1; color: #e8652b; }
+  </style>
+</head>
+<body>
+
+  <div id="loader">
+    <div>LOADING MODEL</div>
+    <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
+    <div id="loader-msg">Initializing&hellip;</div>
+  </div>
+
+  <div id="hud">
+    <div><span class="key">Drag</span>        <span class="desc"> Rotate camera</span></div>
+    <div><span class="key">Scroll</span>      <span class="desc"> Zoom</span></div>
+    <div><span class="key">Right-drag</span>  <span class="desc"> Pan</span></div>
+    <div><span class="key">R</span>           <span class="desc"> Reset camera</span></div>
+    <div class="sep"></div>
+    <div class="dim">Click START LEVEL to preview</div>
+    <div class="dim">Edit panels on right to test</div>
+  </div>
+
+  <div id="top-controls">
+    <button id="export-start-btn" class="cam-export-btn">&#x2B07; Export Start Camera</button>
+    <button id="start-btn">START LEVEL</button>
+    <button id="export-play-btn" class="cam-export-btn hidden">&#x2B07; Export Play Camera</button>
+  </div>
+  <button id="reset-btn">&#x21BA; RESET CAMERA</button>
+
+  <!-- ── Animation editing panels ── -->
+  <div id="panels">
+
+    <!-- Zoom panel -->
+    <div class="anim-panel" data-anim="zoom">
+      <div class="panel-header">
+        <span class="panel-arrow">&#x25B8;</span>
+        <span class="panel-title">Zoom In Slightly</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" data-toggle="zoom" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <label>Duration (s)</label>
+          <input type="number" data-field="zoom-duration" value="1.2" step="0.1" min="0.1" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Easing</label>
+          <select data-field="zoom-easing">
+            <option value="easeInOutCubic" selected>Ease In-Out</option>
+            <option value="easeOutCubic">Ease Out</option>
+            <option value="easeInCubic">Ease In</option>
+            <option value="linear">Linear</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Zoom Factor</label>
+          <input type="range" data-field="zoom-zoomFactor" min="0.3" max="1.5" step="0.01" value="0.85" />
+          <span class="range-val" data-display="zoom-zoomFactor">0.85</span>
+        </div>
+        <div class="form-row">
+          <label>Delay (s)</label>
+          <input type="number" data-field="zoom-delay" value="0" step="0.1" min="0" max="5" />
+        </div>
+        <button class="export-anim-btn" data-export="zoom">&#x2B07; Export Starting Zoom</button>
+      </div>
+    </div>
+
+    <!-- Rotate panel -->
+    <div class="anim-panel" data-anim="rotate">
+      <div class="panel-header">
+        <span class="panel-arrow">&#x25B8;</span>
+        <span class="panel-title">Rotate Into Position</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" data-toggle="rotate" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <label>Duration (s)</label>
+          <input type="number" data-field="rotate-duration" value="2.0" step="0.1" min="0.1" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Easing</label>
+          <select data-field="rotate-easing">
+            <option value="easeInOutCubic" selected>Ease In-Out</option>
+            <option value="easeOutCubic">Ease Out</option>
+            <option value="easeInCubic">Ease In</option>
+            <option value="linear">Linear</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>H-Angle (&deg;)</label>
+          <input type="number" data-field="rotate-horizontalAngle" value="25" step="1" min="-180" max="180" />
+        </div>
+        <div class="form-row">
+          <label>V-Angle (&deg;)</label>
+          <input type="number" data-field="rotate-verticalAngle" value="-5" step="1" min="-89" max="89" />
+        </div>
+        <div class="form-row">
+          <label>Delay (s)</label>
+          <input type="number" data-field="rotate-delay" value="0.3" step="0.1" min="0" max="5" />
+        </div>
+        <button class="export-anim-btn" data-export="rotate">&#x2B07; Export Starting Rotation</button>
+      </div>
+    </div>
+
+    <!-- Pan panel -->
+    <div class="anim-panel" data-anim="pan">
+      <div class="panel-header">
+        <span class="panel-arrow">&#x25B8;</span>
+        <span class="panel-title">Pan Into Position</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" data-toggle="pan" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <label>Duration (s)</label>
+          <input type="number" data-field="pan-duration" value="1.8" step="0.1" min="0.1" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Easing</label>
+          <select data-field="pan-easing">
+            <option value="easeInOutCubic" selected>Ease In-Out</option>
+            <option value="easeOutCubic">Ease Out</option>
+            <option value="easeInCubic">Ease In</option>
+            <option value="linear">Linear</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Offset X</label>
+          <input type="number" data-field="pan-targetOffset.x" value="0.5" step="0.1" min="-10" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Offset Y</label>
+          <input type="number" data-field="pan-targetOffset.y" value="-0.3" step="0.1" min="-10" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Offset Z</label>
+          <input type="number" data-field="pan-targetOffset.z" value="0" step="0.1" min="-10" max="10" />
+        </div>
+        <div class="form-row">
+          <label>Delay (s)</label>
+          <input type="number" data-field="pan-delay" value="0.5" step="0.1" min="0" max="5" />
+        </div>
+        <button class="export-anim-btn" data-export="pan">&#x2B07; Export Starting Pan</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="anim-badge">ANIMATING</div>
+  <div id="camera-info"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three":         "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE        from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLLoader }     from 'three/addons/loaders/STLLoader.js';
+
+    // ---------------------------------------------------
+    //  RENDERER
+    // ---------------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled   = true;
+    renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+    renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.appendChild(renderer.domElement);
+
+    // ---------------------------------------------------
+    //  SCENE & CAMERA
+    // ---------------------------------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x080c18);
+    scene.fog        = new THREE.FogExp2(0x080c18, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(0, 2.5, 8);
+
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.06;
+    orbitControls.minDistance   = 0.5;
+    orbitControls.maxDistance   = 80;
+    orbitControls.target.set(0, 0, 0);
+
+    // ---------------------------------------------------
+    //  LIGHTING
+    // ---------------------------------------------------
+    scene.add(new THREE.AmbientLight(0x2a3d5a, 1.2));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+    sun.position.set(6, 10, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far  = 60;
+    scene.add(sun);
+
+    const fill = new THREE.DirectionalLight(0x4466cc, 0.6);
+    fill.position.set(-6, -3, -8);
+    scene.add(fill);
+
+    // ---------------------------------------------------
+    //  GRID
+    // ---------------------------------------------------
+    const grid = new THREE.GridHelper(30, 30, 0x1a2a44, 0x0d1a2e);
+    grid.position.y = -2;
+    scene.add(grid);
+
+    // ---------------------------------------------------
+    //  HELPERS
+    // ---------------------------------------------------
+    const r3  = n => +n.toFixed(3);
+    const fmt = n => n.toFixed(3);
+
+    function ease(t, type) {
+      switch (type) {
+        case 'easeInOutCubic': return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+        case 'easeOutCubic':   return 1 - Math.pow(1 - t, 3);
+        case 'easeInCubic':    return t * t * t;
+        case 'linear':         return t;
+        default:               return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+      }
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function toSpherical(cameraPos, targetPos) {
+      const offset = cameraPos.clone().sub(targetPos);
+      const r = offset.length();
+      const theta = Math.atan2(offset.x, offset.z);
+      const phi = Math.asin(Math.min(1, Math.max(-1, offset.y / r)));
+      return { r, theta, phi };
+    }
+
+    function fromSpherical(r, theta, phi, targetPos) {
+      const x = r * Math.cos(phi) * Math.sin(theta);
+      const y = r * Math.sin(phi);
+      const z = r * Math.cos(phi) * Math.cos(theta);
+      return new THREE.Vector3(x, y, z).add(targetPos);
+    }
+
+    // ---------------------------------------------------
+    //  CONFIG STATE
+    // ---------------------------------------------------
+    let startConfig  = { position: { x: 0, y: 2.5, z: 8 }, target: { x: 0, y: 0, z: 0 }, fov: 45 };
+    let animFlags    = { 'zoom-in-slightly': true, 'rotate-smoothly-into-play-position': true, 'pan-smoothly-into-play-position': true };
+    let playConfig   = { position: { x: 2.8, y: 1.2, z: 4.5 }, target: { x: 0, y: 0.2, z: -0.5 }, fov: 45 };
+    let zoomConfig   = { duration: 1.2, easing: 'easeInOutCubic', zoomFactor: 0.85, delay: 0 };
+    let rotateConfig = { duration: 2.0, easing: 'easeInOutCubic', horizontalAngle: 25, verticalAngle: -5, delay: 0.3 };
+    let panConfig    = { duration: 1.8, easing: 'easeInOutCubic', targetOffset: { x: 0.5, y: -0.3, z: 0 }, delay: 0.5 };
+
+    // ---------------------------------------------------
+    //  LOAD JSON CONFIGS
+    // ---------------------------------------------------
+    async function loadConfigs() {
+      const load = async (path, fallback) => {
+        try { return await (await fetch(path)).json(); }
+        catch { return fallback; }
+      };
+
+      startConfig  = await load('start.json', startConfig);
+      animFlags    = await load('cameraAnimation.json', animFlags);
+      playConfig   = await load('playAnimation.json', playConfig);
+      zoomConfig   = await load('import/zoomInSlightly.json', zoomConfig);
+      rotateConfig = await load('import/rotateSmoothlyIntoPlayPosition.json', rotateConfig);
+      panConfig    = await load('import/panSmoothlyIntoPlayPosition.json', panConfig);
+
+      applyStartPosition();
+      syncFormsFromConfig();
+    }
+
+    function applyStartPosition() {
+      camera.position.set(startConfig.position.x, startConfig.position.y, startConfig.position.z);
+      orbitControls.target.set(startConfig.target.x, startConfig.target.y, startConfig.target.z);
+      if (startConfig.fov) { camera.fov = startConfig.fov; camera.updateProjectionMatrix(); }
+      orbitControls.update();
+    }
+
+    // ---------------------------------------------------
+    //  FORM ↔ CONFIG SYNC
+    // ---------------------------------------------------
+    function syncFormsFromConfig() {
+      setField('zoom-duration', zoomConfig.duration);
+      setField('zoom-easing', zoomConfig.easing);
+      setField('zoom-zoomFactor', zoomConfig.zoomFactor);
+      setField('zoom-delay', zoomConfig.delay);
+
+      setField('rotate-duration', rotateConfig.duration);
+      setField('rotate-easing', rotateConfig.easing);
+      setField('rotate-horizontalAngle', rotateConfig.horizontalAngle);
+      setField('rotate-verticalAngle', rotateConfig.verticalAngle);
+      setField('rotate-delay', rotateConfig.delay);
+
+      setField('pan-duration', panConfig.duration);
+      setField('pan-easing', panConfig.easing);
+      setField('pan-targetOffset.x', panConfig.targetOffset.x);
+      setField('pan-targetOffset.y', panConfig.targetOffset.y);
+      setField('pan-targetOffset.z', panConfig.targetOffset.z);
+      setField('pan-delay', panConfig.delay);
+
+      document.querySelector('[data-toggle="zoom"]').checked   = animFlags['zoom-in-slightly'];
+      document.querySelector('[data-toggle="rotate"]').checked = animFlags['rotate-smoothly-into-play-position'];
+      document.querySelector('[data-toggle="pan"]').checked    = animFlags['pan-smoothly-into-play-position'];
+
+      updateRangeDisplays();
+    }
+
+    function setField(name, value) {
+      const el = document.querySelector(`[data-field="${name}"]`);
+      if (el) el.value = value;
+    }
+
+    function getField(name) {
+      const el = document.querySelector(`[data-field="${name}"]`);
+      return el ? (el.type === 'range' || el.type === 'number' ? parseFloat(el.value) : el.value) : 0;
+    }
+
+    function readConfigFromForms() {
+      zoomConfig = {
+        duration:   getField('zoom-duration'),
+        easing:     getField('zoom-easing'),
+        zoomFactor: getField('zoom-zoomFactor'),
+        delay:      getField('zoom-delay'),
+      };
+      rotateConfig = {
+        duration:        getField('rotate-duration'),
+        easing:          getField('rotate-easing'),
+        horizontalAngle: getField('rotate-horizontalAngle'),
+        verticalAngle:   getField('rotate-verticalAngle'),
+        delay:           getField('rotate-delay'),
+      };
+      panConfig = {
+        duration:     getField('pan-duration'),
+        easing:       getField('pan-easing'),
+        targetOffset: {
+          x: getField('pan-targetOffset.x'),
+          y: getField('pan-targetOffset.y'),
+          z: getField('pan-targetOffset.z'),
+        },
+        delay: getField('pan-delay'),
+      };
+      animFlags['zoom-in-slightly']                    = document.querySelector('[data-toggle="zoom"]').checked;
+      animFlags['rotate-smoothly-into-play-position']  = document.querySelector('[data-toggle="rotate"]').checked;
+      animFlags['pan-smoothly-into-play-position']     = document.querySelector('[data-toggle="pan"]').checked;
+    }
+
+    function updateRangeDisplays() {
+      document.querySelectorAll('input[type="range"]').forEach(el => {
+        const display = document.querySelector(`[data-display="${el.dataset.field}"]`);
+        if (display) display.textContent = parseFloat(el.value).toFixed(2);
+      });
+    }
+
+    // ---------------------------------------------------
+    //  CAMERA ANIMATION SYSTEM
+    // ---------------------------------------------------
+    let isAnimating   = false;
+    let animStartTime = 0;
+    let animSnapshot  = { r: 0, theta: 0, phi: 0, target: new THREE.Vector3() };
+    let animHasCompleted = false;
+
+    const startBtn      = document.getElementById('start-btn');
+    const resetBtn      = document.getElementById('reset-btn');
+    const exportStartBtn = document.getElementById('export-start-btn');
+    const exportPlayBtn  = document.getElementById('export-play-btn');
+    const animBadge     = document.getElementById('anim-badge');
+    const camInfo       = document.getElementById('camera-info');
+
+    function startCameraAnimation() {
+      if (isAnimating) return;
+
+      readConfigFromForms();
+
+      // Reset to start position first
+      applyStartPosition();
+      orbitControls.update();
+
+      const sph = toSpherical(camera.position, orbitControls.target);
+      animSnapshot.r      = sph.r;
+      animSnapshot.theta  = sph.theta;
+      animSnapshot.phi    = sph.phi;
+      animSnapshot.target = orbitControls.target.clone();
+
+      animStartTime = performance.now() / 1000;
+      isAnimating = true;
+      orbitControls.enabled = false;
+
+      startBtn.classList.add('playing');
+      startBtn.textContent = 'ANIMATING\u2026';
+      animBadge.classList.add('on');
+    }
+
+    function updateCameraAnimation() {
+      if (!isAnimating) return;
+
+      const now = performance.now() / 1000;
+      let anyActive = false;
+
+      let r     = animSnapshot.r;
+      let theta = animSnapshot.theta;
+      let phi   = animSnapshot.phi;
+      const target = animSnapshot.target.clone();
+
+      // Zoom
+      if (animFlags['zoom-in-slightly']) {
+        const cfg = zoomConfig;
+        const tStart = animStartTime + cfg.delay;
+        if (now >= tStart) {
+          const t = Math.min((now - tStart) / cfg.duration, 1);
+          const e = ease(t, cfg.easing);
+          r = lerp(animSnapshot.r, animSnapshot.r * cfg.zoomFactor, e);
+          if (t < 1) anyActive = true;
+        } else { anyActive = true; }
+      }
+
+      // Rotate
+      if (animFlags['rotate-smoothly-into-play-position']) {
+        const cfg = rotateConfig;
+        const tStart = animStartTime + cfg.delay;
+        if (now >= tStart) {
+          const t = Math.min((now - tStart) / cfg.duration, 1);
+          const e = ease(t, cfg.easing);
+          theta = lerp(animSnapshot.theta, animSnapshot.theta + THREE.MathUtils.degToRad(cfg.horizontalAngle), e);
+          phi   = lerp(animSnapshot.phi,   animSnapshot.phi   + THREE.MathUtils.degToRad(cfg.verticalAngle), e);
+          phi   = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, phi));
+          if (t < 1) anyActive = true;
+        } else { anyActive = true; }
+      }
+
+      // Pan
+      if (animFlags['pan-smoothly-into-play-position']) {
+        const cfg = panConfig;
+        const tStart = animStartTime + cfg.delay;
+        if (now >= tStart) {
+          const t = Math.min((now - tStart) / cfg.duration, 1);
+          const e = ease(t, cfg.easing);
+          target.x = lerp(animSnapshot.target.x, animSnapshot.target.x + cfg.targetOffset.x, e);
+          target.y = lerp(animSnapshot.target.y, animSnapshot.target.y + cfg.targetOffset.y, e);
+          target.z = lerp(animSnapshot.target.z, animSnapshot.target.z + cfg.targetOffset.z, e);
+          if (t < 1) anyActive = true;
+        } else { anyActive = true; }
+      }
+
+      // Apply spherical → cartesian
+      const newPos = fromSpherical(r, theta, phi, target);
+      camera.position.copy(newPos);
+      orbitControls.target.copy(target);
+      camera.lookAt(target);
+
+      if (!anyActive) {
+        isAnimating = false;
+        orbitControls.enabled = true;
+        orbitControls.update();
+        startBtn.classList.remove('playing');
+        startBtn.textContent = 'START LEVEL';
+        animBadge.classList.remove('on');
+
+        // Record final play coordinates
+        playConfig.position = { x: r3(camera.position.x), y: r3(camera.position.y), z: r3(camera.position.z) };
+        playConfig.target   = { x: r3(target.x), y: r3(target.y), z: r3(target.z) };
+
+        // Show play camera export after first animation completes
+        animHasCompleted = true;
+        exportPlayBtn.classList.remove('hidden');
+      }
+    }
+
+    // ---------------------------------------------------
+    //  EXPORT FUNCTIONS
+    // ---------------------------------------------------
+    async function exportJSON(filename, data) {
+      const json = JSON.stringify(data, null, 2);
+
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(json);
+          await writable.close();
+          return true;
+        } catch (e) {
+          if (e.name === 'AbortError') return false;
+        }
+      }
+
+      // Fallback: standard download
+      const blob = new Blob([json], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+      URL.revokeObjectURL(url);
+      return true;
+    }
+
+    function flashExportBtn(btn) {
+      btn.textContent = '\u2713 EXPORTED';
+      btn.classList.add('exported');
+      setTimeout(() => {
+        btn.textContent = '\u2B07 ' + btn.dataset.label;
+        btn.classList.remove('exported');
+      }, 1800);
+    }
+
+    // ---------------------------------------------------
+    //  PANEL TOGGLE & EVENTS
+    // ---------------------------------------------------
+    document.querySelectorAll('.panel-header').forEach(header => {
+      header.addEventListener('click', e => {
+        if (e.target.closest('.toggle-wrap')) return;
+        const panel = header.closest('.anim-panel');
+        const body  = panel.querySelector('.panel-body');
+        const arrow = panel.querySelector('.panel-arrow');
+        body.classList.toggle('open');
+        arrow.classList.toggle('open');
+      });
+    });
+
+    // Range input live display updates
+    document.querySelectorAll('input[type="range"]').forEach(el => {
+      el.addEventListener('input', updateRangeDisplays);
+    });
+
+    // Export buttons
+    document.querySelectorAll('.export-anim-btn').forEach(btn => {
+      const labels = { zoom: 'Export Starting Zoom', rotate: 'Export Starting Rotation', pan: 'Export Starting Pan' };
+      const files  = { zoom: 'zoomInSlightly.json', rotate: 'rotateSmoothlyIntoPlayPosition.json', pan: 'panSmoothlyIntoPlayPosition.json' };
+      const type = btn.dataset.export;
+      btn.dataset.label = labels[type];
+
+      btn.addEventListener('click', async () => {
+        readConfigFromForms();
+        const configs = { zoom: zoomConfig, rotate: rotateConfig, pan: panConfig };
+        const ok = await exportJSON(files[type], configs[type]);
+        if (ok) flashExportBtn(btn);
+      });
+    });
+
+    // Start button
+    startBtn.addEventListener('click', startCameraAnimation);
+
+    // Export Start Camera — captures current live camera position
+    exportStartBtn.addEventListener('click', async () => {
+      const data = {
+        position: { x: r3(camera.position.x), y: r3(camera.position.y), z: r3(camera.position.z) },
+        target:   { x: r3(orbitControls.target.x), y: r3(orbitControls.target.y), z: r3(orbitControls.target.z) },
+        fov: camera.fov,
+      };
+      const ok = await exportJSON('start.json', data);
+      if (ok) {
+        exportStartBtn.textContent = '\u2713 EXPORTED';
+        exportStartBtn.classList.add('exported');
+        setTimeout(() => {
+          exportStartBtn.textContent = '\u2B07 Export Start Camera';
+          exportStartBtn.classList.remove('exported');
+        }, 1800);
+      }
+    });
+
+    // Export Play Camera — captures current live camera position as play state
+    exportPlayBtn.addEventListener('click', async () => {
+      const data = {
+        position: { x: r3(camera.position.x), y: r3(camera.position.y), z: r3(camera.position.z) },
+        target:   { x: r3(orbitControls.target.x), y: r3(orbitControls.target.y), z: r3(orbitControls.target.z) },
+        fov: camera.fov,
+      };
+      const ok = await exportJSON('playAnimation.json', data);
+      if (ok) {
+        exportPlayBtn.textContent = '\u2713 EXPORTED';
+        exportPlayBtn.classList.add('exported');
+        setTimeout(() => {
+          exportPlayBtn.textContent = '\u2B07 Export Play Camera';
+          exportPlayBtn.classList.remove('exported');
+        }, 1800);
+      }
+    });
+
+    // Reset button
+    resetBtn.addEventListener('click', () => {
+      if (isAnimating) {
+        isAnimating = false;
+        startBtn.classList.remove('playing');
+        startBtn.textContent = 'START LEVEL';
+        animBadge.classList.remove('on');
+      }
+      orbitControls.enabled = true;
+      applyStartPosition();
+    });
+
+    // Keyboard
+    window.addEventListener('keydown', e => {
+      if (e.target !== document.body && e.target.tagName !== 'CANVAS') return;
+      switch (e.key) {
+        case 'r': case 'R':
+          if (isAnimating) return;
+          applyStartPosition();
+          break;
+      }
+    });
+
+    // ---------------------------------------------------
+    //  STL LOADER
+    // ---------------------------------------------------
+    const loaderEl  = document.getElementById('loader');
+    const loaderBar = document.getElementById('loader-bar');
+    const loaderMsg = document.getElementById('loader-msg');
+
+    new STLLoader().load('../assets/jet.stl',
+      (geometry) => {
+        loaderMsg.textContent = 'Building scene\u2026';
+        loaderBar.style.width = '100%';
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+
+        const centre = new THREE.Vector3();
+        geometry.boundingBox.getCenter(centre);
+        geometry.translate(-centre.x, -centre.y, -centre.z);
+
+        const rawSize = new THREE.Vector3();
+        geometry.boundingBox.getSize(rawSize);
+        const s = 3 / Math.max(rawSize.x, rawSize.y, rawSize.z);
+        geometry.scale(s, s, s);
+        geometry.computeBoundingBox();
+
+        const finalBox  = geometry.boundingBox;
+        const finalSize = new THREE.Vector3();
+        finalBox.getSize(finalSize);
+
+        const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+          color: 0x8899cc, metalness: 0.75, roughness: 0.25,
+        }));
+        mesh.castShadow = mesh.receiveShadow = true;
+        scene.add(mesh);
+
+        grid.position.y = finalBox.min.y - 0.05;
+
+        // Apply start position from JSON
+        applyStartPosition();
+
+        // Set orbit bounds from model
+        const fitDist = finalSize.length() * 1.2;
+        orbitControls.minDistance = fitDist * 0.15;
+        orbitControls.maxDistance = fitDist * 12;
+        orbitControls.update();
+
+        setTimeout(() => loaderEl.classList.add('hidden'), 300);
+        console.info(`[jet-camera-position] Model loaded | size: ${fmt(finalSize.x)} x ${fmt(finalSize.y)} x ${fmt(finalSize.z)}`);
+      },
+      (xhr) => {
+        if (xhr.total) {
+          const pct = Math.round(xhr.loaded / xhr.total * 90);
+          loaderBar.style.width = pct + '%';
+          loaderMsg.textContent = `Loading model\u2026 ${pct}%`;
+        }
+      },
+      (err) => {
+        loaderMsg.textContent = 'Error loading jet.stl \u2014 check console.';
+        console.error('[jet-camera-position]', err);
+      }
+    );
+
+    // ---------------------------------------------------
+    //  RESIZE
+    // ---------------------------------------------------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ---------------------------------------------------
+    //  RENDER LOOP
+    // ---------------------------------------------------
+    const clock = new THREE.Clock();
+
+    (function animate() {
+      requestAnimationFrame(animate);
+      clock.getDelta();
+
+      if (isAnimating) {
+        updateCameraAnimation();
+      } else {
+        orbitControls.update();
+      }
+
+      // Camera readout
+      const p = camera.position;
+      const t = orbitControls.target;
+      camInfo.innerHTML =
+        `<span class="lbl">cam</span>` +
+        ` x:<span class="val">${fmt(p.x)}</span>` +
+        ` y:<span class="val">${fmt(p.y)}</span>` +
+        ` z:<span class="val">${fmt(p.z)}</span>` +
+        `<span class="seg">|</span>` +
+        `<span class="lbl">target</span>` +
+        ` x:<span class="val">${fmt(t.x)}</span>` +
+        ` y:<span class="val">${fmt(t.y)}</span>` +
+        ` z:<span class="val">${fmt(t.z)}</span>`;
+
+      renderer.render(scene, camera);
+    })();
+
+    // ---------------------------------------------------
+    //  INIT: LOAD CONFIGS
+    // ---------------------------------------------------
+    loadConfigs();
+
+  </script>
+</body>
+</html>
