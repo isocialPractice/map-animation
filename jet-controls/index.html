@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jet Controls — Three.js Demo</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #080c18;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    canvas { display: block; }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed; top: 18px; left: 18px;
+      color: #7a9fcc; font-size: 11px; line-height: 2;
+      pointer-events: none; user-select: none;
+    }
+    #hud .key  { color: #d0dcf4; background: #1a2a44; padding: 1px 5px; border-radius: 3px; }
+    #hud .desc { color: #3a6a99; }
+    #hud .sep  { height: 1px; background: #0e1e32; margin: 4px 0; }
+    #hud .dim  { color: #2a4a66; font-size: 10px; }
+
+    /* ── Thrust badge ── */
+    #badge {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px;
+      color: #ff6020; font-size: 11px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      opacity: 0; transition: opacity 0.4s; pointer-events: none; white-space: nowrap;
+    }
+    #badge.on { opacity: 1; }
+    #badge-dot {
+      width: 7px; height: 7px; background: #ff4400; border-radius: 50%;
+      box-shadow: 0 0 6px #ff6600, 0 0 14px #ff4400;
+      animation: bdPulse 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes bdPulse {
+      from { box-shadow: 0 0 5px #ff6600, 0 0 12px #ff4400; }
+      to   { box-shadow: 0 0 10px #ffaa00, 0 0 24px #ff6600; }
+    }
+
+    /* ── Flight info readout ── */
+    #flight-info {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      font: 10px/1 'Courier New', monospace; color: #1e3a55; letter-spacing: 0.5px;
+      pointer-events: none; white-space: nowrap;
+    }
+    #flight-info .lbl { color: #1e5577; margin-right: 3px; }
+    #flight-info .val { color: #3a7799; }
+    #flight-info .seg { margin: 0 10px; color: #0e2030; }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #080c18; color: #4a7aaa; font-size: 13px; letter-spacing: 3px; gap: 16px;
+      z-index: 50; transition: opacity 0.6s;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader-bar-wrap { width: 200px; height: 2px; background: #1a2a44; border-radius: 2px; overflow: hidden; }
+    #loader-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #2255aa, #55aaff); transition: width 0.3s; }
+    #loader-msg { color: #6a8fbb; font-size: 11px; }
+
+    /* ── Config panel button ── */
+    #cfg-btn {
+      position: fixed; top: 14px; right: 14px; z-index: 22;
+      padding: 6px 12px;
+      background: rgba(8, 18, 36, 0.88); border: 1px solid #1e3854; border-radius: 4px;
+      color: #5a90c4; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+      user-select: none; backdrop-filter: blur(6px);
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.3s;
+    }
+    #cfg-btn:hover { border-color: #3a78bb; color: #99ccee; box-shadow: 0 0 12px rgba(50,110,190,0.2); }
+    body.panel-open #cfg-btn { transform: translateX(calc(-268px)); }
+
+    /* ── Config panel ── */
+    #cfg-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 260px;
+      background: rgba(6, 12, 24, 0.93);
+      border-left: 1px solid #152030;
+      backdrop-filter: blur(10px);
+      z-index: 21; overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      scrollbar-width: thin; scrollbar-color: #1a2a44 transparent;
+      padding: 14px 0 20px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    #cfg-panel::-webkit-scrollbar { width: 4px; }
+    #cfg-panel::-webkit-scrollbar-thumb { background: #1a2a44; border-radius: 2px; }
+    #cfg-panel.open { transform: translateX(0); }
+
+    .p-head {
+      padding: 0 10px 8px; font-size: 9px; letter-spacing: 2.5px;
+      color: #2a4a66; text-transform: uppercase; border-bottom: 1px solid #0c1828;
+      margin-bottom: 2px;
+    }
+
+    /* Panel sections — mirrors jet-camera-position .anim-panel */
+    .p-panel {
+      background: rgba(6, 12, 24, 0.92);
+      border: 1px solid #152030; border-radius: 5px;
+      margin: 0 10px;
+    }
+    .p-hd {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; cursor: pointer; user-select: none;
+    }
+    .p-arr {
+      color: #3a6a99; font-size: 10px;
+      transition: transform 0.2s; width: 10px; text-align: center;
+    }
+    .p-arr.open { transform: rotate(90deg); }
+    .p-title {
+      flex: 1; color: #5a90c4; font-size: 10px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+
+    /* Toggle switch — same as jet-camera-position */
+    .tog-wrap { position: relative; width: 30px; height: 16px; cursor: pointer; }
+    .tog-wrap input { display: none; }
+    .tog-sl {
+      position: absolute; inset: 0;
+      background: #1a2a44; border-radius: 8px; transition: background 0.2s;
+    }
+    .tog-sl::after {
+      content: ''; position: absolute;
+      left: 2px; top: 2px; width: 12px; height: 12px;
+      background: #3a6a99; border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .tog-wrap input:checked + .tog-sl { background: rgba(34,170,102,0.3); }
+    .tog-wrap input:checked + .tog-sl::after { transform: translateX(14px); background: #22aa66; }
+
+    .p-body { display: none; padding: 4px 10px 10px; border-top: 1px solid #0e1a28; }
+    .p-body.open { display: block; }
+
+    .p-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 6px 0; gap: 6px;
+    }
+    .p-row label { color: #3a6a99; font-size: 10px; letter-spacing: 0.5px; white-space: nowrap; min-width: 68px; }
+    .p-row input[type="range"] {
+      flex: 1; max-width: 90px; height: 3px;
+      -webkit-appearance: none; appearance: none;
+      background: #1a2a44; border-radius: 2px; outline: none;
+    }
+    .p-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px;
+      background: #5a90c4; border-radius: 50%; cursor: pointer; border: 1px solid #3a78bb;
+    }
+    .p-row .rv { color: #5a90c4; font-size: 10px; min-width: 32px; text-align: right; }
+    .p-divider { height: 1px; background: #0e1a28; margin: 6px 0; }
+
+    /* Contrail section — teal accent */
+    .p-panel.contrail .p-title       { color: #44ccaa; }
+    .p-panel.contrail .p-arr         { color: #2a8866; }
+    .p-panel.contrail .p-row label   { color: #2a8866; }
+    .p-panel.contrail .p-row .rv     { color: #44ccaa; }
+    .p-panel.contrail input[type="range"] { background: #0e2820; }
+    .p-panel.contrail input[type="range"]::-webkit-slider-thumb { background: #44ccaa; border-color: #2a9977; }
+    .p-panel.contrail .tog-wrap input:checked + .tog-sl { background: rgba(68, 204, 170, 0.3); }
+    .p-panel.contrail .tog-wrap input:checked + .tog-sl::after { background: #44ccaa; }
+
+    /* Export button */
+    #export-cfg-btn {
+      width: calc(100% - 20px); margin: 2px 10px 0;
+      padding: 7px 10px;
+      background: rgba(8, 18, 36, 0.7); border: 1px solid #1e3854; border-radius: 3px;
+      color: #5a90c4; font: 10px/1 'Courier New', monospace;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+    #export-cfg-btn:hover { border-color: #3a78bb; color: #99ccee; box-shadow: 0 0 10px rgba(50,110,190,0.2); }
+    #export-cfg-btn.exported { border-color: #22aa66; color: #44ddaa; box-shadow: 0 0 12px rgba(34,170,102,0.25); }
+  </style>
+</head>
+<body>
+
+  <div id="loader">
+    <div>LOADING MODEL</div>
+    <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
+    <div id="loader-msg">Initializing&hellip;</div>
+  </div>
+
+  <div id="hud">
+    <div><span class="key">&#x2190; &#x2192;</span>  <span class="desc"> Roll left / right</span></div>
+    <div><span class="key">&#x2191; &#x2193;</span>  <span class="desc"> Pitch up / down</span></div>
+    <div><span class="key">Shift</span>       <span class="desc"> Throttle up</span></div>
+    <div><span class="key">Ctrl</span>        <span class="desc"> Throttle down</span></div>
+    <div class="sep"></div>
+    <div><span class="key">C</span>           <span class="desc"> Toggle contrail</span></div>
+    <div><span class="key">F</span>           <span class="desc"> Toggle flames</span></div>
+    <div><span class="key">R</span>           <span class="desc"> Reset</span></div>
+    <div class="sep"></div>
+    <div class="dim">Arrow keys apply animation + control</div>
+    <div class="dim">P — config panel</div>
+  </div>
+
+  <div id="badge"><div id="badge-dot"></div>Thrust Active</div>
+  <div id="flight-info"></div>
+
+  <!-- ── Config panel ─────────────────────────────────── -->
+  <div id="cfg-panel">
+    <div class="p-head">Controls Config</div>
+
+    <!-- Pitch & Roll -->
+    <div class="p-panel">
+      <div class="p-hd">
+        <span class="p-arr open">&#x25B8;</span>
+        <span class="p-title">Pitch &amp; Roll</span>
+      </div>
+      <div class="p-body open">
+        <div class="p-row">
+          <label>Pitch Sens</label>
+          <input id="sl-pitch-sens" type="range" min="0.3" max="3" step="0.1" value="1">
+          <span class="rv" id="rv-pitch-sens">1.0</span>
+        </div>
+        <div class="p-row">
+          <label>Roll Sens</label>
+          <input id="sl-roll-sens" type="range" min="0.3" max="3" step="0.1" value="1">
+          <span class="rv" id="rv-roll-sens">1.0</span>
+        </div>
+        <div class="p-divider"></div>
+        <div class="p-row">
+          <label>Invert Pitch</label>
+          <label class="tog-wrap">
+            <input type="checkbox" id="tog-inv-pitch">
+            <span class="tog-sl"></span>
+          </label>
+        </div>
+        <div class="p-row">
+          <label>Invert Roll</label>
+          <label class="tog-wrap">
+            <input type="checkbox" id="tog-inv-roll">
+            <span class="tog-sl"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Throttle -->
+    <div class="p-panel">
+      <div class="p-hd">
+        <span class="p-arr open">&#x25B8;</span>
+        <span class="p-title">Throttle</span>
+      </div>
+      <div class="p-body open">
+        <div class="p-row">
+          <label>Accel Rate</label>
+          <input id="sl-accel" type="range" min="0.5" max="10" step="0.5" value="3">
+          <span class="rv" id="rv-accel">3.0</span>
+        </div>
+        <div class="p-row">
+          <label>Decel Rate</label>
+          <input id="sl-decel" type="range" min="0.5" max="10" step="0.5" value="3">
+          <span class="rv" id="rv-decel">3.0</span>
+        </div>
+        <div class="p-divider"></div>
+        <div class="p-row">
+          <label>Max Speed</label>
+          <input id="sl-max-spd" type="range" min="1" max="10" step="0.5" value="5">
+          <span class="rv" id="rv-max-spd">5.0</span>
+        </div>
+        <div class="p-row">
+          <label>Min Speed</label>
+          <input id="sl-min-spd" type="range" min="0" max="2" step="0.1" value="0.5">
+          <span class="rv" id="rv-min-spd">0.50</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contrail ★ (surprise control — vapor trail) -->
+    <div class="p-panel contrail">
+      <div class="p-hd">
+        <span class="p-arr open">&#x25B8;</span>
+        <span class="p-title">&#x2605; Contrail &nbsp;[C]</span>
+      </div>
+      <div class="p-body open">
+        <div class="p-row">
+          <label>Enabled</label>
+          <label class="tog-wrap">
+            <input type="checkbox" id="tog-trail" checked>
+            <span class="tog-sl"></span>
+          </label>
+        </div>
+        <div class="p-row">
+          <label>Trail Length</label>
+          <input id="sl-trail-len" type="range" min="20" max="300" step="10" value="200">
+          <span class="rv" id="rv-trail-len">200</span>
+        </div>
+        <div class="p-row">
+          <label>Opacity</label>
+          <input id="sl-trail-opa" type="range" min="0.05" max="1" step="0.05" value="0.6">
+          <span class="rv" id="rv-trail-opa">0.60</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="export-cfg-btn">&#x2B07; Export Config</button>
+  </div>
+
+  <button id="cfg-btn">&#x2699; CONFIG</button>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three":         "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE    from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+    // ---------------------------------------------------
+    //  RENDERER
+    // ---------------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled   = true;
+    renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+    renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.appendChild(renderer.domElement);
+
+    // ---------------------------------------------------
+    //  SCENE & CAMERA  (fixed chase cam — no OrbitControls)
+    //  Offset loaded from jetControls.animation.json (camera block)
+    // ---------------------------------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x080c18);
+    scene.fog        = new THREE.FogExp2(0x080c18, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+    const CAM_OFFSET = new THREE.Vector3(-0.024, 0.681, -3.368);
+
+    // ---------------------------------------------------
+    //  LIGHTING
+    // ---------------------------------------------------
+    scene.add(new THREE.AmbientLight(0x2a3d5a, 1.2));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+    sun.position.set(6, 10, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far  = 60;
+    scene.add(sun);
+
+    const fill = new THREE.DirectionalLight(0x4466cc, 0.6);
+    fill.position.set(-6, -3, -8);
+    scene.add(fill);
+
+    const engineGlow = new THREE.PointLight(0xff5500, 0, 4, 2);
+    scene.add(engineGlow);
+
+    // ---------------------------------------------------
+    //  GRID
+    // ---------------------------------------------------
+    const grid = new THREE.GridHelper(60, 60, 0x1a2a44, 0x0d1a2e);
+    grid.position.y = -2;
+    scene.add(grid);
+
+    // ---------------------------------------------------
+    //  RUNTIME CONFIG  (cfg)
+    //
+    //  Loaded from jetControls.config.json at startup.
+    //  Updated live by the config panel.
+    //  Exported as jetControls.config.json via the panel button.
+    // ---------------------------------------------------
+    const cfg = {
+      pitchSens:    1.0,
+      rollSens:     1.0,
+      invertPitch:  false,
+      invertRoll:   false,
+      accelRate:    3.0,
+      decelRate:    3.0,
+      maxSpeed:     5.0,
+      minSpeed:     0.5,
+      trailEnabled: true,
+      trailLength:  200,
+      trailOpacity: 0.6,
+    };
+
+    function applyConfig(c) {
+      if (!c) return;
+      if (c.pitchSensitivity != null) cfg.pitchSens   = c.pitchSensitivity;
+      if (c.rollSensitivity  != null) cfg.rollSens    = c.rollSensitivity;
+      if (c.invertPitch      != null) cfg.invertPitch = c.invertPitch;
+      if (c.invertRoll       != null) cfg.invertRoll  = c.invertRoll;
+      if (c.throttleAccel    != null) cfg.accelRate   = c.throttleAccel;
+      if (c.throttleDecel    != null) cfg.decelRate   = c.throttleDecel;
+      if (c.maxSpeed         != null) cfg.maxSpeed    = c.maxSpeed;
+      if (c.minSpeed         != null) cfg.minSpeed    = c.minSpeed;
+      if (c.contrail) {
+        if (c.contrail.enabled != null) cfg.trailEnabled = c.contrail.enabled;
+        if (c.contrail.length  != null) cfg.trailLength  = c.contrail.length;
+        if (c.contrail.opacity != null) cfg.trailOpacity = c.contrail.opacity;
+      }
+    }
+
+    // ---------------------------------------------------
+    //  AIRCRAFT STATE  (mimicked from .support/aircraft.js)
+    //
+    //  Base rates are constants; sensitivity multipliers
+    //  and inversion flags live in cfg and are panel-adjustable.
+    // ---------------------------------------------------
+    const acPos      = new THREE.Vector3(0, 1, 0);
+    const acRot      = new THREE.Euler(0, 0, 0, 'YXZ');
+    let   acSpeed    = 1.5;
+    const AC_PITCH   = 1.2;   // base rad/s — cfg.pitchSens multiplies this
+    const AC_ROLL    = 2.0;   // base rad/s — cfg.rollSens  multiplies this
+    const AC_GRAVITY = 0.05;
+    const AC_GROUND  = -1.5;
+    let   jetGroup   = null;
+
+    const input = {
+      pitchUp: false, pitchDown: false,
+      rollLeft: false, rollRight: false,
+      throttleUp: false, throttleDown: false,
+    };
+
+    function resetAircraft() {
+      acPos.set(0, 1, 0);
+      acRot.set(0, 0, 0);
+      acSpeed = 1.5;
+      trailPts.length = 0;
+      trailGeo.setDrawRange(0, 0);
+      trailGeo.attributes.position.needsUpdate = true;
+      if (jetGroup) { jetGroup.position.copy(acPos); jetGroup.rotation.copy(acRot); }
+    }
+
+    function updateAircraft(dt) {
+      if (!jetGroup) return;
+      dt = Math.min(dt, 0.05);
+
+      // Throttle — cfg.accelRate / decelRate control acceleration magnitude
+      if (input.throttleUp)
+        acSpeed = Math.min(cfg.maxSpeed, acSpeed + cfg.accelRate * dt);
+      if (input.throttleDown)
+        acSpeed = Math.max(cfg.minSpeed, acSpeed - cfg.decelRate * dt);
+      acSpeed = Math.min(acSpeed, cfg.maxSpeed);  // clamp if maxSpeed was lowered
+
+      // Pitch — cfg.pitchSens scales rate; cfg.invertPitch flips direction
+      const pDir = cfg.invertPitch ? -1 : 1;
+      if (input.pitchUp)   acRot.x += AC_PITCH * cfg.pitchSens * pDir * dt;
+      if (input.pitchDown) acRot.x -= AC_PITCH * cfg.pitchSens * pDir * dt;
+      acRot.x = THREE.MathUtils.clamp(acRot.x, -Math.PI / 2.2, Math.PI / 2.2);
+
+      // Roll — cfg.rollSens scales rate; cfg.invertRoll flips direction
+      const rDir = cfg.invertRoll ? -1 : 1;
+      if (input.rollLeft)  acRot.z += AC_ROLL * cfg.rollSens * rDir * dt;
+      if (input.rollRight) acRot.z -= AC_ROLL * cfg.rollSens * rDir * dt;
+      acRot.z = THREE.MathUtils.clamp(acRot.z, -Math.PI, Math.PI);
+
+      if (!input.rollLeft && !input.rollRight) acRot.z *= (1 - dt * 1.5);
+
+      acRot.y -= Math.sin(acRot.z) * 1.2 * dt;
+
+      const quat    = new THREE.Quaternion().setFromEuler(acRot);
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
+      acPos.addScaledVector(forward, acSpeed * dt);
+
+      acPos.y -= AC_GRAVITY * dt;
+      if (acPos.y < AC_GROUND) acPos.y = AC_GROUND;
+
+      jetGroup.position.copy(acPos);
+      jetGroup.rotation.copy(acRot);
+    }
+
+    // ---------------------------------------------------
+    //  CONTRAIL SYSTEM  (★ the surprise control)
+    //
+    //  A vapor trail that permanently marks the jet's flight
+    //  path in world space as a glowing blue-white line.
+    //  Reveal spirals, loops, and banking manoeuvres visually.
+    //
+    //  Toggle: C key (or panel toggle)
+    //  Adjust: Trail Length (how many samples kept),
+    //          Opacity (how visible)
+    //  All settings live in cfg and are exportable.
+    // ---------------------------------------------------
+    const TRAIL_MAX  = 300;
+    const trailPts   = [];           // plain world-position samples
+    const trailPosBuf = new Float32Array(TRAIL_MAX * 3);
+    const trailColBuf = new Float32Array(TRAIL_MAX * 3);
+
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPosBuf, 3).setUsage(THREE.DynamicDrawUsage));
+    trailGeo.setAttribute('color',    new THREE.BufferAttribute(trailColBuf, 3).setUsage(THREE.DynamicDrawUsage));
+    trailGeo.setDrawRange(0, 0);
+
+    const trailMat = new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true,
+      opacity: cfg.trailOpacity, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const trailLine = new THREE.Line(trailGeo, trailMat);
+    trailLine.frustumCulled = false;
+    trailLine.visible = cfg.trailEnabled;
+    scene.add(trailLine);
+
+    let trailTimer = 0;
+    const TRAIL_SAMPLE_DT = 0.04;  // 25 Hz — smooth but inexpensive
+
+    function toggleTrail(on) {
+      cfg.trailEnabled = on;
+      trailLine.visible = on;
+      document.getElementById('tog-trail').checked = on;
+      if (!on) {
+        trailPts.length = 0;
+        trailGeo.setDrawRange(0, 0);
+        trailGeo.attributes.position.needsUpdate = true;
+      }
+    }
+
+    function updateTrail(dt) {
+      if (!cfg.trailEnabled || !jetGroup) return;
+
+      trailTimer += dt;
+      if (trailTimer < TRAIL_SAMPLE_DT) return;
+      trailTimer -= TRAIL_SAMPLE_DT;
+
+      trailPts.push({ x: acPos.x, y: acPos.y, z: acPos.z });
+
+      const maxLen = Math.min(Math.round(cfg.trailLength), TRAIL_MAX);
+      while (trailPts.length > maxLen) trailPts.shift();
+
+      // Rebuild geometry from oldest (dim) → newest (bright white-blue)
+      const n = trailPts.length;
+      for (let i = 0; i < n; i++) {
+        const p = trailPts[i];
+        const t = (i + 1) / n;          // 0 = oldest, 1 = freshest
+        trailPosBuf[i * 3]     = p.x;
+        trailPosBuf[i * 3 + 1] = p.y;
+        trailPosBuf[i * 3 + 2] = p.z;
+        trailColBuf[i * 3]     = t * 0.5;   // R — low for cool blue-white
+        trailColBuf[i * 3 + 1] = t * 0.75;  // G
+        trailColBuf[i * 3 + 2] = t;         // B — full
+      }
+      trailGeo.setDrawRange(0, Math.max(1, n));
+      trailGeo.attributes.position.needsUpdate = true;
+      trailGeo.attributes.color.needsUpdate    = true;
+    }
+
+    // ---------------------------------------------------
+    //  FLAME ANIMATION SYSTEM  (from jet-engine-flame)
+    // ---------------------------------------------------
+    const CANVAS_W = 128, CANVAS_H = 256;
+    let   flameActive = false, flameTime = 0;
+    const badge = document.getElementById('badge');
+
+    function setFlames(on) {
+      flameActive = on;
+      flameEntities.forEach(ent => ent.sprites.forEach(s => s.visible = on));
+      badge.classList.toggle('on', on);
+      engineGlow.intensity = on ? glowIntensity : 0;
+    }
+
+    function drawFlame(ctx, t, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2, baseY = h - 2;
+      const layers = [
+        { stop0:'rgba(120,40,0,0.18)',    stop1:'rgba(40,10,0,0)',    hMul:1.00, wMul:0.72, speed: 4.1, swayAmp:5,   flickAmp:0.08 },
+        { stop0:'rgba(255,90,10,0.85)',   stop1:'rgba(200,30,0,0)',   hMul:0.82, wMul:0.55, speed: 6.3, swayAmp:3,   flickAmp:0.12 },
+        { stop0:'rgba(255,200,30,0.90)',  stop1:'rgba(255,80,0,0)',   hMul:0.55, wMul:0.36, speed: 9.7, swayAmp:1.8, flickAmp:0.15 },
+        { stop0:'rgba(255,255,240,0.98)', stop1:'rgba(255,180,50,0)', hMul:0.28, wMul:0.18, speed:14.0, swayAmp:0.6, flickAmp:0.07 },
+      ];
+      layers.forEach((L, i) => {
+        const n1 = Math.sin(t * L.speed + i * 1.7);
+        const n2 = Math.sin(t * L.speed * 0.6 + i * 0.9 + 1.3);
+        const n3 = Math.sin(t * L.speed * 1.4 + i * 2.1 + 2.7);
+        const flicker = 1 + L.flickAmp * n1 + L.flickAmp * 0.5 * n3;
+        const sway = L.swayAmp * n2;
+        const fH = h * L.hMul * flicker, fW = w * L.wMul;
+        const gx = cx + sway * 0.4, gy = baseY - fH * 0.4;
+        const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, fH * 0.75);
+        grad.addColorStop(0, L.stop0); grad.addColorStop(1, L.stop1);
+        ctx.beginPath();
+        ctx.moveTo(cx, baseY);
+        ctx.bezierCurveTo(cx + fW, baseY - fH * 0.25, cx + fW * 0.6 + sway, baseY - fH * 0.72, cx + sway, baseY - fH);
+        ctx.bezierCurveTo(cx - fW * 0.6 + sway, baseY - fH * 0.72, cx - fW, baseY - fH * 0.25, cx, baseY);
+        ctx.fillStyle = grad; ctx.fill();
+      });
+    }
+
+    function makeFlameSprite() {
+      const canvas = document.createElement('canvas');
+      canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+      const ctx = canvas.getContext('2d');
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthWrite: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      mesh.renderOrder = 2;
+      mesh.userData = { canvas, ctx, phase: Math.random() * Math.PI * 2 };
+      return mesh;
+    }
+
+    function updateFlames(dt) {
+      flameTime += dt;
+      for (const ent of flameEntities) {
+        for (const s of ent.sprites) {
+          if (!s.visible) continue;
+          const { canvas, ctx, phase } = s.userData;
+          drawFlame(ctx, flameTime + phase, canvas.width, canvas.height);
+          s.material.map.needsUpdate = true;
+        }
+      }
+    }
+
+    const _localCam = new THREE.Vector3();
+    const _toCam    = new THREE.Vector3();
+
+    function billboardFlames() {
+      for (const ent of flameEntities) {
+        ent.group.worldToLocal(_localCam.copy(camera.position));
+        for (const s of ent.sprites) {
+          _toCam.copy(_localCam).sub(s.position);
+          _toCam.y = 0;
+          if (_toCam.lengthSq() > 1e-6) _toCam.normalize();
+          else _toCam.set(0, 0, 1);
+          s.rotation.set(0, Math.atan2(_toCam.x, _toCam.z), 0);
+        }
+      }
+    }
+
+    // ---------------------------------------------------
+    //  FLAME ENTITIES  (JSON-driven + heuristic fallback)
+    // ---------------------------------------------------
+    const flameEntities = [];
+    let   glowIntensity = 3;
+
+    function makeEngineFlameFromRecord(parentGroup, animRec) {
+      const tf = animRec.transform;
+      const ap = animRec.appearance;
+      const flameScale = ap.flameScale;
+
+      const group = new THREE.Group();
+      group.position.set(tf.position.x, tf.position.y, tf.position.z);
+      group.rotation.set(
+        THREE.MathUtils.degToRad(tf.rotation.x),
+        THREE.MathUtils.degToRad(tf.rotation.y),
+        THREE.MathUtils.degToRad(tf.rotation.z)
+      );
+      group.scale.set(tf.scale.x, tf.scale.y, tf.scale.z);
+      parentGroup.add(group);
+
+      const sprites = [];
+      for (let i = 0; i < (ap.spriteCount ?? 4); i++) {
+        const s  = makeFlameSprite();
+        const sc = flameScale * (0.8 + Math.random() * 0.4);
+        s.scale.set(sc * 0.5, sc, 1);
+        s.position.set((Math.random() - 0.5) * flameScale * 0.06, (Math.random() - 0.5) * flameScale * 0.04, 0);
+        s.userData.phase = (i / (ap.spriteCount ?? 4)) * Math.PI * 2;
+        s.visible = false;
+        group.add(s); sprites.push(s);
+      }
+      const indicator = new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(flameScale * 0.1, 0.055), 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0x224466, transparent: true, opacity: 0.55, depthWrite: false })
+      );
+      group.add(indicator);
+      flameEntities.push({ id: animRec.id, label: animRec.label, group, sprites, indicator, flameScale });
+    }
+
+    function makeEngineFlameHeuristic(parentGroup, position, flameScale, id, label) {
+      const group = new THREE.Group();
+      group.position.copy(position);
+      parentGroup.add(group);
+      const sprites = [];
+      for (let i = 0; i < 4; i++) {
+        const s  = makeFlameSprite();
+        const sc = flameScale * (0.8 + Math.random() * 0.4);
+        s.scale.set(sc * 0.5, sc, 1);
+        s.position.set((Math.random() - 0.5) * flameScale * 0.06, (Math.random() - 0.5) * flameScale * 0.04, 0);
+        s.userData.phase = (i / 4) * Math.PI * 2;
+        s.visible = false;
+        group.add(s); sprites.push(s);
+      }
+      const indicator = new THREE.Mesh(
+        new THREE.SphereGeometry(Math.max(flameScale * 0.1, 0.055), 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0x224466, transparent: true, opacity: 0.55, depthWrite: false })
+      );
+      group.add(indicator);
+      flameEntities.push({ id, label, group, sprites, indicator, flameScale });
+    }
+
+    // ---------------------------------------------------
+    //  KEY CONTROLS
+    //
+    //  Shorthand: ArrowKey keypress → apply animation (flames on)
+    //                              AND apply control (aircraft input)
+    // ---------------------------------------------------
+    function onArrowDown() { if (!flameActive) setFlames(true); }
+
+    window.addEventListener('keydown', e => {
+      // Block arrow key page scroll
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+      switch (e.code) {
+        case 'ArrowUp':    input.pitchUp    = true; onArrowDown(); break;
+        case 'ArrowDown':  input.pitchDown  = true; onArrowDown(); break;
+        case 'ArrowLeft':  input.rollLeft   = true; onArrowDown(); break;
+        case 'ArrowRight': input.rollRight  = true; onArrowDown(); break;
+        case 'ShiftLeft':   case 'ShiftRight':   input.throttleUp   = true;  e.preventDefault(); break;
+        case 'ControlLeft': case 'ControlRight': input.throttleDown = true;  e.preventDefault(); break;
+        case 'KeyC': toggleTrail(!cfg.trailEnabled); break;
+        case 'KeyF': setFlames(!flameActive); break;
+        case 'KeyP': togglePanel(); break;
+        case 'KeyR': resetAircraft(); break;
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      switch (e.code) {
+        case 'ArrowUp':    input.pitchUp    = false; break;
+        case 'ArrowDown':  input.pitchDown  = false; break;
+        case 'ArrowLeft':  input.rollLeft   = false; break;
+        case 'ArrowRight': input.rollRight  = false; break;
+        case 'ShiftLeft':   case 'ShiftRight':   input.throttleUp   = false; break;
+        case 'ControlLeft': case 'ControlRight': input.throttleDown = false; break;
+      }
+    });
+
+    // ---------------------------------------------------
+    //  CONFIG PANEL
+    // ---------------------------------------------------
+    function togglePanel() {
+      const panel = document.getElementById('cfg-panel');
+      const isOpen = panel.classList.toggle('open');
+      document.body.classList.toggle('panel-open', isOpen);
+    }
+
+    function wireSlider(slId, rvId, setter, fmt) {
+      const sl = document.getElementById(slId);
+      const rv = document.getElementById(rvId);
+      if (!sl) return;
+      sl.addEventListener('input', () => {
+        const v = parseFloat(sl.value);
+        setter(v);
+        if (rv) rv.textContent = fmt(v);
+      });
+    }
+
+    function wireTog(id, setter) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', () => setter(el.checked));
+    }
+
+    function syncPanel() {
+      const ss = (slId, rvId, v, fmt) => {
+        const sl = document.getElementById(slId);
+        const rv = document.getElementById(rvId);
+        if (sl) sl.value = v;
+        if (rv) rv.textContent = fmt(v);
+      };
+      const st = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v; };
+
+      ss('sl-pitch-sens', 'rv-pitch-sens', cfg.pitchSens,    v => v.toFixed(1));
+      ss('sl-roll-sens',  'rv-roll-sens',  cfg.rollSens,     v => v.toFixed(1));
+      ss('sl-accel',      'rv-accel',      cfg.accelRate,    v => v.toFixed(1));
+      ss('sl-decel',      'rv-decel',      cfg.decelRate,    v => v.toFixed(1));
+      ss('sl-max-spd',    'rv-max-spd',    cfg.maxSpeed,     v => v.toFixed(1));
+      ss('sl-min-spd',    'rv-min-spd',    cfg.minSpeed,     v => v.toFixed(2));
+      ss('sl-trail-len',  'rv-trail-len',  cfg.trailLength,  v => Math.round(v).toString());
+      ss('sl-trail-opa',  'rv-trail-opa',  cfg.trailOpacity, v => v.toFixed(2));
+      st('tog-inv-pitch', cfg.invertPitch);
+      st('tog-inv-roll',  cfg.invertRoll);
+      st('tog-trail',     cfg.trailEnabled);
+    }
+
+    function initPanel() {
+      // Collapsible section headers
+      document.querySelectorAll('.p-hd').forEach(hd => {
+        hd.addEventListener('click', () => {
+          const body = hd.nextElementSibling;
+          const arr  = hd.querySelector('.p-arr');
+          if (body) body.classList.toggle('open');
+          if (arr) arr.classList.toggle('open');
+        });
+      });
+
+      // Config button
+      document.getElementById('cfg-btn').addEventListener('click', togglePanel);
+
+      // Sliders
+      wireSlider('sl-pitch-sens', 'rv-pitch-sens', v => { cfg.pitchSens   = v; }, v => v.toFixed(1));
+      wireSlider('sl-roll-sens',  'rv-roll-sens',  v => { cfg.rollSens    = v; }, v => v.toFixed(1));
+      wireSlider('sl-accel',      'rv-accel',      v => { cfg.accelRate   = v; }, v => v.toFixed(1));
+      wireSlider('sl-decel',      'rv-decel',      v => { cfg.decelRate   = v; }, v => v.toFixed(1));
+      wireSlider('sl-max-spd',    'rv-max-spd',    v => { cfg.maxSpeed    = v; }, v => v.toFixed(1));
+      wireSlider('sl-min-spd',    'rv-min-spd',    v => { cfg.minSpeed    = v; }, v => v.toFixed(2));
+      wireSlider('sl-trail-len',  'rv-trail-len',  v => { cfg.trailLength = Math.round(v); },
+                                                         v => Math.round(v).toString());
+      wireSlider('sl-trail-opa',  'rv-trail-opa',  v => { cfg.trailOpacity = v; trailMat.opacity = v; },
+                                                         v => v.toFixed(2));
+
+      // Toggles
+      wireTog('tog-inv-pitch', v => { cfg.invertPitch = v; });
+      wireTog('tog-inv-roll',  v => { cfg.invertRoll  = v; });
+      wireTog('tog-trail',     v => { toggleTrail(v); });
+
+      // Export
+      const exportBtn = document.getElementById('export-cfg-btn');
+      exportBtn.addEventListener('click', async () => {
+        const ok = await exportConfig();
+        if (ok) {
+          exportBtn.textContent = '\u2713 EXPORTED';
+          exportBtn.classList.add('exported');
+          setTimeout(() => {
+            exportBtn.textContent = '\u2B07 Export Config';
+            exportBtn.classList.remove('exported');
+          }, 2000);
+        }
+      });
+    }
+
+    // ---------------------------------------------------
+    //  EXPORT  — writes jetControls.config.json
+    // ---------------------------------------------------
+    async function exportConfig() {
+      const data = {
+        version:          '1.0',
+        pitchSensitivity: cfg.pitchSens,
+        rollSensitivity:  cfg.rollSens,
+        invertPitch:      cfg.invertPitch,
+        invertRoll:       cfg.invertRoll,
+        throttleAccel:    cfg.accelRate,
+        throttleDecel:    cfg.decelRate,
+        maxSpeed:         cfg.maxSpeed,
+        minSpeed:         cfg.minSpeed,
+        contrail: {
+          enabled: cfg.trailEnabled,
+          length:  cfg.trailLength,
+          opacity: cfg.trailOpacity,
+        },
+        exportedAt: new Date().toISOString(),
+      };
+      const json = JSON.stringify(data, null, 2);
+
+      if (window.showSaveFilePicker) {
+        try {
+          const fh = await window.showSaveFilePicker({
+            suggestedName: 'jetControls.config.json',
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+          });
+          const w = await fh.createWritable();
+          await w.write(json); await w.close();
+          return true;
+        } catch (e) { if (e.name === 'AbortError') return false; }
+      }
+      // Fallback download
+      const a  = document.createElement('a');
+      a.href   = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      a.download = 'jetControls.config.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return true;
+    }
+
+    // ---------------------------------------------------
+    //  LOADER ELEMENTS
+    // ---------------------------------------------------
+    const loaderEl  = document.getElementById('loader');
+    const loaderBar = document.getElementById('loader-bar');
+    const loaderMsg = document.getElementById('loader-msg');
+    const infoEl    = document.getElementById('flight-info');
+    const fmt       = n => n.toFixed(2);
+
+    // ---------------------------------------------------
+    //  INIT — load all three JSON configs, then STL
+    //
+    //  Three JSON files:
+    //    jet-engine-flame.animation.json  — flame placement  (drop-in from jet-engine-flame)
+    //    jetControls.animation.json       — camera offset + base physics
+    //    jetControls.config.json          — exported runtime config (overrides defaults)
+    // ---------------------------------------------------
+    async function init() {
+      const load = async (path, fallback) => {
+        try { return await (await fetch(path)).json(); }
+        catch { return fallback; }
+      };
+
+      const [flameConfig, ctrlConfig, savedConfig] = await Promise.all([
+        load('jet-engine-flame.animation.json', null),
+        load('jetControls.animation.json',      null),
+        load('jetControls.config.json',         null),
+      ]);
+
+      // Camera offset from controls config
+      if (ctrlConfig?.camera?.position) {
+        const cp = ctrlConfig.camera.position;
+        CAM_OFFSET.set(cp.x, cp.y, cp.z);
+      }
+
+      // Engine glow from flame config
+      if (flameConfig?.scene?.engineGlow) {
+        const g = flameConfig.scene.engineGlow;
+        engineGlow.color.set(g.color);
+        engineGlow.distance = g.distance;
+        glowIntensity = g.intensity;
+      }
+
+      // Runtime config: saved file overrides built-in defaults
+      applyConfig(savedConfig);
+      trailMat.opacity = cfg.trailOpacity;
+      trailLine.visible = cfg.trailEnabled;
+
+      // Sync panel sliders/toggles to loaded values
+      syncPanel();
+
+      // Wire panel interactivity
+      initPanel();
+
+      // Load STL
+      new STLLoader().load('../assets/jet.stl',
+        (geometry) => {
+          loaderMsg.textContent = 'Building scene\u2026';
+          loaderBar.style.width = '100%';
+
+          geometry.computeVertexNormals();
+          geometry.computeBoundingBox();
+
+          const centre = new THREE.Vector3();
+          geometry.boundingBox.getCenter(centre);
+          geometry.translate(-centre.x, -centre.y, -centre.z);
+
+          const rawSize = new THREE.Vector3();
+          geometry.boundingBox.getSize(rawSize);
+          const s = 3 / Math.max(rawSize.x, rawSize.y, rawSize.z);
+          geometry.scale(s, s, s);
+          geometry.computeBoundingBox();
+
+          const finalBox  = geometry.boundingBox;
+          const finalSize = new THREE.Vector3();
+          finalBox.getSize(finalSize);
+
+          jetGroup = new THREE.Group();
+          jetGroup.position.copy(acPos);
+          scene.add(jetGroup);
+
+          const jetMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+            color: 0x8899cc, metalness: 0.75, roughness: 0.25,
+          }));
+          jetMesh.castShadow = jetMesh.receiveShadow = true;
+          jetGroup.add(jetMesh);
+
+          grid.position.y = finalBox.min.y - 0.05 + acPos.y;
+
+          // Flame placement — JSON-driven primary, heuristic fallback
+          if (flameConfig?.animations?.length) {
+            flameConfig.animations.forEach(r => makeEngineFlameFromRecord(jetGroup, r));
+
+            const glowPos = flameConfig.animations
+              .reduce((acc, r) => acc.add(new THREE.Vector3(r.transform.position.x, r.transform.position.y, r.transform.position.z)), new THREE.Vector3())
+              .divideScalar(flameConfig.animations.length);
+            engineGlow.position.copy(glowPos);
+            console.info(`[jet-controls] ${flameConfig.animations.length} engine(s) from jet-engine-flame.animation.json`);
+          } else {
+            const dims = ['x','y','z'].map(a => ({ axis: a, len: finalSize[a] })).sort((a,b) => b.len - a.len);
+            const fuselageAxis = dims[0].axis, wingspanAxis = dims[1].axis, heightAxis = dims[2].axis;
+            const rearVal = finalBox.min[fuselageAxis];
+            const midH = (finalBox.min[heightAxis] + finalBox.max[heightAxis]) / 2;
+            const midW = (finalBox.min[wingspanAxis] + finalBox.max[wingspanAxis]) / 2;
+            const flameSc = finalSize[heightAxis] * 0.9;
+            function rearPos(wo = 0) {
+              const p = new THREE.Vector3();
+              p[fuselageAxis] = rearVal; p[heightAxis] = midH; p[wingspanAxis] = midW + wo;
+              return p;
+            }
+            const exh = finalSize[wingspanAxis] > finalSize[fuselageAxis] * 0.6
+              ? [rearPos(-finalSize[wingspanAxis] * 0.14), rearPos(finalSize[wingspanAxis] * 0.14)]
+              : [rearPos(0)];
+            exh.forEach((pos, i) => makeEngineFlameHeuristic(jetGroup, pos, flameSc, `engine_${i}`, `Engine ${i + 1}`));
+            const glowPos = exh.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(exh.length);
+            engineGlow.position.copy(glowPos);
+            console.info(`[jet-controls] ${exh.length} engine(s) from heuristic`);
+          }
+
+          jetGroup.add(engineGlow);
+          camera.position.copy(acPos).add(CAM_OFFSET);
+          camera.lookAt(acPos);
+
+          setTimeout(() => loaderEl.classList.add('hidden'), 300);
+        },
+        (xhr) => {
+          if (xhr.total) {
+            const pct = Math.round(xhr.loaded / xhr.total * 90);
+            loaderBar.style.width = pct + '%';
+            loaderMsg.textContent = `Loading model\u2026 ${pct}%`;
+          }
+        },
+        (err) => {
+          loaderMsg.textContent = 'Error loading jet.stl \u2014 check console.';
+          console.error('[jet-controls]', err);
+        }
+      );
+    }
+
+    init();
+
+    // ---------------------------------------------------
+    //  RESIZE
+    // ---------------------------------------------------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ---------------------------------------------------
+    //  RENDER LOOP
+    // ---------------------------------------------------
+    const clock       = new THREE.Clock();
+    const _camOffset  = new THREE.Vector3();
+
+    (function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+
+      if (jetGroup) {
+        updateAircraft(dt);
+        updateTrail(dt);
+
+        _camOffset.copy(CAM_OFFSET).applyEuler(new THREE.Euler(0, acRot.y, 0, 'YXZ'));
+        camera.position.copy(acPos).add(_camOffset);
+        camera.lookAt(acPos);
+
+        const pitchDeg = THREE.MathUtils.radToDeg(acRot.x).toFixed(1);
+        const rollDeg  = THREE.MathUtils.radToDeg(acRot.z).toFixed(1);
+        infoEl.innerHTML =
+          `<span class="lbl">spd</span><span class="val">${fmt(acSpeed)}</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">alt</span><span class="val">${fmt(acPos.y)}</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">pit</span><span class="val">${pitchDeg}&deg;</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">rol</span><span class="val">${rollDeg}&deg;</span>` +
+          `<span class="seg">|</span>` +
+          `<span class="lbl">trail</span><span class="val">${cfg.trailEnabled ? trailPts.length : '—'}</span>`;
+      }
+
+      billboardFlames();
+      if (flameActive) updateFlames(dt);
+
+      renderer.render(scene, camera);
+    })();
+
+  </script>
+</body>
+</html>

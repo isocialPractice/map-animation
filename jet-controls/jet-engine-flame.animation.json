@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "model": "../assets/jet.stl",
+  "animations": [
+    {
+      "id": "engine_0",
+      "label": "Engine 1",
+      "type": "flame",
+      "active": true,
+      "transform": {
+        "position": {
+          "x": -0.217,
+          "y": 0,
+          "z": -0.934
+        },
+        "rotation": {
+          "x": 87.815,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "appearance": {
+        "flameScale": 0.687,
+        "spriteCount": 4,
+        "blending": "additive",
+        "colors": {
+          "core": "#fffff0",
+          "inner": "#ffcc20",
+          "mid": "#ff5a0a",
+          "outer": "#781000"
+        }
+      }
+    },
+    {
+      "id": "engine_1",
+      "label": "Engine 2",
+      "type": "flame",
+      "active": true,
+      "transform": {
+        "position": {
+          "x": 0.227,
+          "y": 0,
+          "z": -0.927
+        },
+        "rotation": {
+          "x": 89.496,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "appearance": {
+        "flameScale": 0.687,
+        "spriteCount": 4,
+        "blending": "additive",
+        "colors": {
+          "core": "#fffff0",
+          "inner": "#ffcc20",
+          "mid": "#ff5a0a",
+          "outer": "#781000"
+        }
+      }
+    }
+  ],
+  "scene": {
+    "engineGlow": {
+      "color": "#ff5500",
+      "intensity": 3,
+      "distance": 4
+    },
+    "camera": {
+      "position": {
+        "x": -2.346,
+        "y": 3.746,
+        "z": -2.275
+      },
+      "target": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    }
+  },
+  "exportedAt": "2026-02-24T04:39:31.544Z"
+}

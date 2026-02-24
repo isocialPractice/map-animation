@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "camera": {
+    "position": { "x": -0.024, "y": 0.681, "z": -3.368 },
+    "target":   { "x": 0, "y": 0, "z": 0 },
+    "fov": 45
+  },
+  "controls": {
+    "pitchRate": 1.2,
+    "rollRate":  2.0,
+    "minSpeed":  0.5,
+    "maxSpeed":  5.0,
+    "gravity":   0.05,
+    "animationTrigger": "arrowKeys",
+    "keymap": {
+      "pitchUp":      ["ArrowUp",     "KeyW"],
+      "pitchDown":    ["ArrowDown",   "KeyS"],
+      "rollLeft":     ["ArrowLeft",   "KeyA"],
+      "rollRight":    ["ArrowRight",  "KeyD"],
+      "throttleUp":   ["ShiftLeft",   "ShiftRight"],
+      "throttleDown": ["ControlLeft", "ControlRight"],
+      "reset":        ["KeyR"],
+      "flameToggle":  ["KeyF"]
+    }
+  }
+}

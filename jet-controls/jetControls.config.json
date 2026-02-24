@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "pitchSensitivity": 1.0,
+  "rollSensitivity":  1.0,
+  "invertPitch":      false,
+  "invertRoll":       false,
+  "throttleAccel":    3.0,
+  "throttleDecel":    3.0,
+  "maxSpeed":         5.0,
+  "minSpeed":         0.5,
+  "contrail": {
+    "enabled": true,
+    "length":  200,
+    "opacity": 0.6
+  },
+  "exportedAt": null
+}

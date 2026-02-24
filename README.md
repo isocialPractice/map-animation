@@ -26,6 +26,10 @@ A Three.js 3D camera positioning tool for configuring starting and play-state ca
 
 A pure SVG firework launcher controlled by keyboard. Aim a turret, adjust power, and fire fireworks into a starlit sky above a city skyline. Four procedural burst types -- Classic Bloom, Ring Halo, Star Scatter, and Willow Cascade -- with gravity-pulled particles and trailing afterglow.
 
+### jet-controls
+
+A Three.js 3D demo that maps arrow key presses to simultaneous aircraft physics and engine flame animation. Each arrow key triggers both systems at once: the jet pitches or rolls, and the engines fire. The camera follows the jet in a fixed chase position sourced from `jet-camera-position/playAnimation.json`. Control logic is mimicked from `.support/aircraft.js` and flame animation is ported from `jet-engine-flame`.
+
 ## Running
 
 The root `index.html` is a launcher page that lists every element with a live preview and a link to open it. Serve the repo root with any static HTTP server and open `index.html` in a browser. No build step or package manager required.
