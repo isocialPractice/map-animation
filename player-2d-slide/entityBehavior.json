@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "name": "Entity Behavior",
+  "passive": {
+    "count": 5,
+    "bobSpeed": 1.5,
+    "bobHeight": 0.05,
+    "squashOnLand": {
+      "scaleY": 0.6,
+      "scaleX": 1.4,
+      "recoverMs": 250
+    },
+    "sizeRange": {
+      "widthMin": 1.0,
+      "widthMax": 1.8,
+      "heightMin": 0.8,
+      "heightMax": 2.3
+    }
+  },
+  "harmful": {
+    "count": 5,
+    "bobSpeed": 2.5,
+    "bobHeight": 0.08,
+    "wobbleSpeed": 3,
+    "wobbleAngle": 0.05,
+    "pulseSpeed": 4,
+    "emissiveBase": 0.2,
+    "emissivePulse": 0.15,
+    "squashOnLand": {
+      "scaleY": 0.5,
+      "scaleX": 1.5,
+      "recoverMs": 300
+    },
+    "sizeRange": {
+      "widthMin": 0.9,
+      "widthMax": 1.5,
+      "heightMin": 0.7,
+      "heightMax": 1.7
+    }
+  },
+  "interactive": {
+    "count": 4,
+    "floatSpeed": 2,
+    "floatHeight": 0.08,
+    "glowIntensity": 0.6,
+    "glowPulseSpeed": 4,
+    "glowPulseDelta": 0.2,
+    "carrySpeedFactor": 0.5
+  },
+  "bird": {
+    "speedMin": 1.5,
+    "speedMax": 3.5,
+    "liftMin": 2,
+    "liftMax": 3.5,
+    "flapRate": 12,
+    "flapAngle": 0.5,
+    "lifespan": 4
+  },
+  "exportedAt": null
+}

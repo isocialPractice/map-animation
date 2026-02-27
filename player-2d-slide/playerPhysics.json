@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "name": "Player Physics",
+  "movement": {
+    "speed": 10,
+    "gravity": -32,
+    "jumpVelocity": 15,
+    "playerSize": 1,
+    "coyoteTime": 0.12,
+    "jumpBuffer": 0.15
+  },
+  "health": {
+    "maxHP": 5,
+    "damageCooldown": 1.0,
+    "hurtFlashDuration": 0.5,
+    "knockbackForce": 2,
+    "bounceMultiplier": 0.5
+  },
+  "squashStretch": {
+    "enabled": true,
+    "groundSquash": 0.01,
+    "airStretch": 0.005,
+    "tiltAmount": 0.02
+  },
+  "exportedAt": null
+}

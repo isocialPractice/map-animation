@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "name": "Camera Rig",
+  "view": {
+    "frustumHeight": 20,
+    "followSmoothing": 0.08,
+    "baseY": 2
+  },
+  "screenShake": {
+    "duration": 0.4,
+    "intensity": 8
+  },
+  "ambientLight": {
+    "color": "#8899bb",
+    "intensity": 0.6
+  },
+  "directionalLight": {
+    "color": "#ffeedd",
+    "intensity": 0.8,
+    "posX": 5,
+    "posY": 10,
+    "posZ": 8
+  },
+  "background": {
+    "clearColor": "#16213e",
+    "starCount": 30,
+    "starSizeMin": 0.05,
+    "starSizeMax": 0.2,
+    "starOpacityMin": 0.2,
+    "starOpacityMax": 0.7
+  },
+  "exportedAt": null
+}

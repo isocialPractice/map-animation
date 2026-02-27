@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "Climb Structure",
+  "generation": {
+    "seed": 42,
+    "segmentHeight": 3.0,
+    "minWidth": 4,
+    "maxWidth": 8,
+    "wallThickness": 0.4,
+    "gapFrequency": 0.2,
+    "gapSize": 1.5,
+    "platformFrequency": 0.35,
+    "platformMinWidth": 2,
+    "platformMaxWidth": 5,
+    "ledgeFrequency": 0.5,
+    "ledgeMinWidth": 1.0,
+    "ledgeMaxWidth": 2.5
+  },
+  "latching": {
+    "enabled": true,
+    "latchRange": 0.8,
+    "latchSpeed": 4,
+    "deLatchForce": 8,
+    "autoLatch": true,
+    "latchStaminaDrain": 5
+  },
+  "textures": {
+    "active": 0,
+    "list": ["stone", "brick", "ice", "wood", "vine", "metal"]
+  },
+  "crumbling": {
+    "enabled": true,
+    "frequency": 0.15,
+    "crumbleTime": 1.5,
+    "warningTime": 0.8,
+    "shakeIntensity": 0.03,
+    "respawnTime": 5.0
+  },
+  "wallLight": {
+    "enabled": true,
+    "color": "#4488cc",
+    "intensity": 0.3,
+    "pulseSpeed": 2
+  },
+  "exportedAt": null
+}

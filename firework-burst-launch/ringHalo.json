@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Ring Halo",
+  "burst": {
+    "density": 40,
+    "radius": 140,
+    "consistency": 0.85,
+    "flameSize": 1.5
+  },
+  "effects": {
+    "colorRandom": true,
+    "color": "#64c8ff",
+    "colorTool": "colorWheel",
+    "brightness": 1.2,
+    "contrast": 1,
+    "hue": 0,
+    "saturation": 1,
+    "tone": 0.6
+  },
+  "shoot": {
+    "speed": 450,
+    "acceleration": 70,
+    "endBurstRandom": true,
+    "endpointMaxRange": 0.85,
+    "endpointMinRange": 0.45,
+    "consistency": {
+      "speedRandom": true,
+      "speedMin": 0.8,
+      "speedMax": 1.86,
+      "accelerationRandom": false,
+      "accelerationMin": 0.8,
+      "accelerationMax": 1.2
+    }
+  },
+  "exportedAt": "2026-02-27T04:09:31.962Z"
+}

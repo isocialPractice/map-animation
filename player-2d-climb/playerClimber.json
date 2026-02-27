@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "name": "Player Climber",
+  "movement": {
+    "speed": 8,
+    "climbSpeed": 6,
+    "jumpHeight": 12,
+    "acceleration": 0.15,
+    "gravity": -28,
+    "airControl": 0.6
+  },
+  "stamina": {
+    "maxStamina": 100,
+    "reloadTime": 2.0,
+    "drainRate": 8,
+    "dangerDrain": 25,
+    "enemyDrain": 35,
+    "climbDrainMultiplier": 1.0,
+    "jumpDrainAmount": 10
+  },
+  "health": {
+    "maxHP": 5,
+    "staminaBoostAmount": 30,
+    "healthIncreaseAmount": 1,
+    "timerFactor": 3.0,
+    "staminaBoostDuration": 5.0,
+    "healthRegenDuration": 8.0,
+    "damageCooldown": 1.0,
+    "hurtFlashDuration": 0.4
+  },
+  "size": {
+    "baseWidth": 0.8,
+    "baseHeight": 1.0,
+    "staminaWidthFactor": 0.15,
+    "staminaHeightFactor": 0.1,
+    "minScale": 0.7,
+    "maxScale": 1.2
+  },
+  "color": "#64c8ff",
+  "colorTool": "colorWheel",
+  "momentum": {
+    "enabled": true,
+    "buildRate": 0.5,
+    "maxBonus": 1.5,
+    "decayRate": 0.3,
+    "trailEnabled": true,
+    "trailCount": 5,
+    "trailFadeRate": 0.2
+  },
+  "exportedAt": null
+}

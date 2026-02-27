@@ -30,6 +30,10 @@ A pure SVG firework launcher controlled by keyboard. Aim a turret, adjust power,
 
 A Three.js 3D demo that maps arrow key presses to simultaneous aircraft physics and engine flame animation. Each arrow key triggers both systems at once: the jet pitches or rolls, and the engines fire. The camera follows the jet in a fixed chase position sourced from `jet-camera-position/playAnimation.json`. Control logic is mimicked from `.support/aircraft.js` and flame animation is ported from `jet-engine-flame`.
 
+### player-2d-climb
+
+A Three.js 2D vertical climbing game with procedurally generated climb structures, dynamic obstacles, and atmospheric effects. Features a comprehensive stamina management system, wall latching mechanics, seven obstacle types (including enemy, danger, friendly, blocking, lighting, movable, and mystic), weather effects (clouds with lightning, rain), altitude-based environmental zones, and extensive particle effects for all interactions. Includes a live configuration panel with five tabs for real-time tweaking of player physics, obstacle behavior, climb structure generation, atmosphere settings, and visual effects. Exports all configurations as JSON for easy customization.
+
 ## Running
 
 The root `index.html` is a launcher page that lists every element with a live preview and a link to open it. Serve the repo root with any static HTTP server and open `index.html` in a browser. No build step or package manager required.

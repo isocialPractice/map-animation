@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Atmosphere",
+  "weather": {
+    "enabled": true,
+    "type": "fireflies",
+    "density": 20,
+    "speedMin": 10,
+    "speedMax": 30,
+    "driftX": 5,
+    "driftY": 2,
+    "opacityMin": 0.3,
+    "opacityMax": 0.8,
+    "sizeMin": 1,
+    "sizeMax": 4,
+    "color": "#feca57",
+    "colorTool": "colorWheel",
+    "pulseSpeed": 3
+  },
+  "playerTrail": {
+    "enabled": true,
+    "ghostCount": 4,
+    "ghostSpacing": 0.06,
+    "fadeRate": 0.25,
+    "color": "#64c8ff",
+    "colorTool": "colorWheel"
+  },
+  "timeWarp": {
+    "enabled": true,
+    "triggerOn": "enemyLand",
+    "slowFactor": 0.3,
+    "duration": 0.6,
+    "easeBack": 0.3
+  },
+  "exportedAt": null
+}

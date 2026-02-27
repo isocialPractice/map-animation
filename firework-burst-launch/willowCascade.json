@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Willow Cascade",
+  "burst": {
+    "density": 45,
+    "radius": 100,
+    "consistency": 0.8,
+    "flameSize": 1.2
+  },
+  "effects": {
+    "colorRandom": true,
+    "color": "#ffcc44",
+    "colorTool": "colorWheel",
+    "brightness": 0.9,
+    "contrast": 1.0,
+    "hue": 0,
+    "saturation": 0.9,
+    "tone": 0.55
+  },
+  "shoot": {
+    "speed": 400,
+    "acceleration": 100,
+    "endBurstRandom": true,
+    "endpointMaxRange": 0.8,
+    "endpointMinRange": 0.5,
+    "consistency": {
+      "speedRandom": true,
+      "speedMin": 0.7,
+      "speedMax": 1.3,
+      "accelerationRandom": true,
+      "accelerationMin": 0.8,
+      "accelerationMax": 1.4
+    }
+  },
+  "exportedAt": null
+}

@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "name": "Particle Effects",
+  "dustTrail": {
+    "enabled": true,
+    "count": 2,
+    "spawnInterval": 0.08,
+    "radiusMin": 2,
+    "radiusMax": 5,
+    "velocityX": 30,
+    "velocityYMin": -15,
+    "velocityYMax": -40,
+    "lifetimeMin": 0.4,
+    "lifetimeMax": 0.7
+  },
+  "dustBurst": {
+    "count": 8,
+    "radiusMin": 3,
+    "radiusMax": 8,
+    "velocityX": 100,
+    "velocityYMin": -20,
+    "velocityYMax": -70,
+    "lifetimeMin": 0.5,
+    "lifetimeMax": 0.9
+  },
+  "enemyLandFX": {
+    "enabled": true,
+    "symbolCount": 6,
+    "symbols": ["!", "?", "*", "#", "+"],
+    "colors": ["#8854d0", "#a55eea", "#64c8ff", "#ff9ff3", "#feca57"],
+    "velocity": 90,
+    "lifetime": 0.9,
+    "starburstOuter": 22,
+    "starburstInner": 9,
+    "starburstLifetime": 0.5
+  },
+  "damage": {
+    "enabled": true,
+    "shockwaveCount": 3,
+    "shockwaveMaxRadius": 80,
+    "shockwaveLifetime": 0.6,
+    "shockwaveColors": ["#ff4444", "#ff8800", "#ffcc00"],
+    "skullCount": 8,
+    "skullVelocityMin": 60,
+    "skullVelocityMax": 120,
+    "skullLifetime": 1.0,
+    "lightningCount": 4,
+    "lightningSegments": 4,
+    "lightningLifetimeMin": 0.3,
+    "lightningLifetimeMax": 0.5,
+    "textSize": 28,
+    "textVelocityY": -60,
+    "textLifetime": 1.2,
+    "vignetteOpacity": 0.25,
+    "vignetteLifetime": 0.3,
+    "screenShakeDuration": 0.4
+  },
+  "interactiveFX": {
+    "enabled": true,
+    "glowOnRadius": 25,
+    "glowOffRadius": 15,
+    "glowLifetime": 0.5,
+    "sparkleCount": 3,
+    "sparkleVelocityX": 40,
+    "sparkleVelocityYMin": -30,
+    "sparkleVelocityYMax": -50,
+    "sparkleLifetime": 0.7
+  },
+  "exportedAt": null
+}

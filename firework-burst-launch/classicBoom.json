@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Classic Boom",
+  "burst": {
+    "density": 60,
+    "radius": 180,
+    "consistency": 0.7,
+    "flameSize": 2.0
+  },
+  "effects": {
+    "colorRandom": true,
+    "color": "#ff4444",
+    "colorTool": "colorWheel",
+    "brightness": 1.0,
+    "contrast": 1.0,
+    "hue": 0,
+    "saturation": 1.0,
+    "tone": 0.5
+  },
+  "shoot": {
+    "speed": 500,
+    "acceleration": 80,
+    "endBurstRandom": true,
+    "endpointMaxRange": 0.9,
+    "endpointMinRange": 0.4,
+    "consistency": {
+      "speedRandom": false,
+      "speedMin": 0.7,
+      "speedMax": 1.3,
+      "accelerationRandom": false,
+      "accelerationMin": 0.7,
+      "accelerationMax": 1.3
+    }
+  },
+  "exportedAt": null
+}

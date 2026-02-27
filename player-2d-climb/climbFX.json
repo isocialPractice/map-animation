@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "name": "Climb Effects",
+  "latchFX": {
+    "enabled": true,
+    "sparkCount": 4,
+    "sparkVelocity": 50,
+    "sparkLifetime": 0.5,
+    "dustCount": 3,
+    "dustRadius": 4,
+    "dustLifetime": 0.6
+  },
+  "jumpFX": {
+    "enabled": true,
+    "burstCount": 6,
+    "burstVelocity": 70,
+    "burstLifetime": 0.7,
+    "trailEnabled": true,
+    "trailSpawnInterval": 0.05
+  },
+  "landFX": {
+    "enabled": true,
+    "dustCount": 8,
+    "dustRadiusMin": 3,
+    "dustRadiusMax": 7,
+    "dustVelocity": 60,
+    "dustLifetime": 0.6,
+    "screenShakeDuration": 0.2,
+    "screenShakeIntensity": 4
+  },
+  "damageFX": {
+    "enabled": true,
+    "shockwaveCount": 2,
+    "shockwaveRadius": 60,
+    "shockwaveLifetime": 0.5,
+    "flashColor": "#ff2222",
+    "flashDuration": 0.3,
+    "symbolCount": 5,
+    "symbolVelocity": 80,
+    "symbolLifetime": 0.8
+  },
+  "crumbleFX": {
+    "enabled": true,
+    "particleCount": 10,
+    "particleVelocity": 40,
+    "particleLifetime": 1.0,
+    "cameraShake": true,
+    "shakeIntensity": 3
+  },
+  "collectFX": {
+    "enabled": true,
+    "sparkleCount": 6,
+    "sparkleVelocity": 60,
+    "sparkleLifetime": 0.8,
+    "glowRadius": 20,
+    "glowLifetime": 0.4,
+    "textSize": 20,
+    "textLifetime": 1.0
+  },
+  "staminaWarnFX": {
+    "enabled": true,
+    "pulseColor": "#ff6600",
+    "pulseSpeed": 4,
+    "vignetteOpacity": 0.15,
+    "threshold": 0.2
+  },
+  "exportedAt": null
+}

@@ -30,6 +30,7 @@
     padding: 20px 14px;
     gap: 10px;
     z-index: 10;
+    overflow-y: auto;
   }
   #type-panel h3 {
     color: #7f8fa6;
@@ -67,6 +68,147 @@
   }
   .type-btn.active .indicator { background: #e8652b; box-shadow: 0 0 6px #e8652b; }
 
+  /* ─── Config panel ─── */
+  #config-panel {
+    position: fixed;
+    left: 0; top: 0;
+    width: 320px; height: 100vh;
+    background: rgba(10, 10, 30, 0.92);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    display: none; flex-direction: column;
+    padding: 16px 14px;
+    gap: 6px;
+    z-index: 20;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(232,101,43,0.3) transparent;
+  }
+  #config-panel.open { display: flex; }
+  #config-panel h2 {
+    color: #e8652b;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(232,101,43,0.2);
+  }
+  #config-panel h4 {
+    color: #7f8fa6;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+  }
+  .cfg-row label {
+    color: #8899aa;
+    font-size: 11px;
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .cfg-row input[type="range"] {
+    flex: 1;
+    accent-color: #e8652b;
+  }
+  .cfg-row .val {
+    color: #ccc;
+    font-size: 10px;
+    font-family: monospace;
+    width: 42px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .cfg-toggle {
+    position: relative;
+    width: 34px; height: 18px;
+    flex-shrink: 0;
+  }
+  .cfg-toggle input { opacity: 0; width: 0; height: 0; }
+  .cfg-toggle .track {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .cfg-toggle .track::after {
+    content: '';
+    position: absolute; left: 2px; top: 2px;
+    width: 14px; height: 14px;
+    background: #555;
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .cfg-toggle input:checked + .track {
+    background: rgba(232,101,43,0.3);
+  }
+  .cfg-toggle input:checked + .track::after {
+    transform: translateX(16px);
+    background: #e8652b;
+  }
+  .cfg-select {
+    flex: 1;
+    padding: 4px 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    color: #ccc;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+  }
+  .cfg-select:focus { border-color: rgba(232,101,43,0.5); }
+  #color-tool-container {
+    margin-top: 4px;
+    padding: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    min-height: 40px;
+  }
+  .cfg-sub {
+    margin-left: 16px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(255,255,255,0.06);
+  }
+  .cfg-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 6px 0;
+  }
+  #btn-export {
+    margin-top: 10px;
+    padding: 10px 16px;
+    background: rgba(232, 101, 43, 0.15);
+    border: 1px solid rgba(232, 101, 43, 0.4);
+    border-radius: 8px;
+    color: #e8652b;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  #btn-export:hover {
+    background: rgba(232, 101, 43, 0.25);
+    border-color: rgba(232, 101, 43, 0.6);
+  }
+  #btn-export.exported {
+    background: rgba(68, 255, 136, 0.15);
+    border-color: rgba(68, 255, 136, 0.4);
+    color: #44ff88;
+  }
+
   #aim-info {
     position: fixed;
     bottom: 20px; left: 50%;
@@ -87,12 +229,13 @@
   <div><span class="key">SPACE</span> &mdash; Launch firework</div>
   <div><span class="key">1-4</span> &mdash; Change burst type</div>
   <div><span class="key">UP / DOWN</span> &mdash; Adjust power</div>
+  <div><span class="key">P</span> &mdash; Toggle config panel</div>
 </div>
 
 <div id="type-panel">
   <h3>Burst Type</h3>
   <button class="type-btn active" id="btn-1" onclick="selectType(0)">
-    <span class="indicator"></span>Classic Bloom
+    <span class="indicator"></span>Classic Boom
   </button>
   <button class="type-btn" id="btn-2" onclick="selectType(1)">
     <span class="indicator"></span>Ring Halo
@@ -105,23 +248,236 @@
   </button>
 </div>
 
+<!-- Config Panel -->
+<div id="config-panel">
+  <h2 id="config-title">Classic Boom</h2>
+
+  <!-- Burst Elements -->
+  <h4>Burst Elements</h4>
+  <div class="cfg-row">
+    <label>Density</label>
+    <input type="range" id="cfg-density" min="10" max="150" step="1" value="60" />
+    <span class="val" id="val-density">60</span>
+  </div>
+  <div class="cfg-row">
+    <label>Radius</label>
+    <input type="range" id="cfg-radius" min="30" max="400" step="5" value="180" />
+    <span class="val" id="val-radius">180</span>
+  </div>
+  <div class="cfg-row">
+    <label>Consistency</label>
+    <input type="range" id="cfg-consistency" min="0" max="100" step="1" value="70" />
+    <span class="val" id="val-consistency">0.70</span>
+  </div>
+  <div class="cfg-row">
+    <label>Flame Size</label>
+    <input type="range" id="cfg-flameSize" min="5" max="50" step="1" value="20" />
+    <span class="val" id="val-flameSize">2.0</span>
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <!-- Effects -->
+  <h4>Effects</h4>
+  <div class="cfg-row">
+    <label>Color Random</label>
+    <label class="cfg-toggle">
+      <input type="checkbox" id="cfg-colorRandom" checked />
+      <span class="track"></span>
+    </label>
+  </div>
+  <div class="cfg-row" id="row-color">
+    <label>Color</label>
+    <input type="color" id="cfg-color" value="#ff4444" style="width:32px;height:24px;border:none;background:none;cursor:pointer;" />
+    <span class="val" id="val-color">#ff4444</span>
+  </div>
+  <div class="cfg-row">
+    <label>Color Tool</label>
+    <select class="cfg-select" id="cfg-colorTool">
+      <option value="colorWheel">Color Wheel</option>
+      <option value="colorInput">Color Input</option>
+      <option value="colorSwatches">Color Swatches</option>
+      <option value="colorHarmony">Color Harmony</option>
+    </select>
+  </div>
+  <div id="color-tool-container"></div>
+  <div class="cfg-row">
+    <label>Brightness</label>
+    <input type="range" id="cfg-brightness" min="0" max="200" step="1" value="100" />
+    <span class="val" id="val-brightness">1.00</span>
+  </div>
+  <div class="cfg-row">
+    <label>Contrast</label>
+    <input type="range" id="cfg-contrast" min="0" max="200" step="1" value="100" />
+    <span class="val" id="val-contrast">1.00</span>
+  </div>
+  <div class="cfg-row">
+    <label>Hue</label>
+    <input type="range" id="cfg-hue" min="0" max="360" step="1" value="0" />
+    <span class="val" id="val-hue">0</span>
+  </div>
+  <div class="cfg-row">
+    <label>Saturation</label>
+    <input type="range" id="cfg-saturation" min="0" max="200" step="1" value="100" />
+    <span class="val" id="val-saturation">1.00</span>
+  </div>
+  <div class="cfg-row">
+    <label>Tone</label>
+    <input type="range" id="cfg-tone" min="0" max="100" step="1" value="50" />
+    <span class="val" id="val-tone">0.50</span>
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <!-- Shoot -->
+  <h4>Shoot</h4>
+  <div class="cfg-row">
+    <label>Speed</label>
+    <input type="range" id="cfg-speed" min="100" max="1000" step="10" value="500" />
+    <span class="val" id="val-speed">500</span>
+  </div>
+  <div class="cfg-row">
+    <label>Acceleration</label>
+    <input type="range" id="cfg-acceleration" min="10" max="200" step="5" value="80" />
+    <span class="val" id="val-acceleration">80</span>
+  </div>
+  <div class="cfg-row">
+    <label>End Burst Rand</label>
+    <label class="cfg-toggle">
+      <input type="checkbox" id="cfg-endBurstRandom" checked />
+      <span class="track"></span>
+    </label>
+  </div>
+  <div class="cfg-sub" id="sub-endBurst">
+    <div class="cfg-row">
+      <label>Max Range</label>
+      <input type="range" id="cfg-endpointMax" min="0" max="100" step="1" value="90" />
+      <span class="val" id="val-endpointMax">0.90</span>
+    </div>
+    <div class="cfg-row">
+      <label>Min Range</label>
+      <input type="range" id="cfg-endpointMin" min="0" max="100" step="1" value="40" />
+      <span class="val" id="val-endpointMin">0.40</span>
+    </div>
+  </div>
+
+  <h4>Shoot Consistency</h4>
+  <div class="cfg-row">
+    <label>Speed Rand</label>
+    <label class="cfg-toggle">
+      <input type="checkbox" id="cfg-speedRandom" />
+      <span class="track"></span>
+    </label>
+  </div>
+  <div class="cfg-sub" id="sub-speedRandom">
+    <div class="cfg-row">
+      <label>Speed Min</label>
+      <input type="range" id="cfg-speedMin" min="10" max="100" step="1" value="70" />
+      <span class="val" id="val-speedMin">0.70</span>
+    </div>
+    <div class="cfg-row">
+      <label>Speed Max</label>
+      <input type="range" id="cfg-speedMax" min="100" max="200" step="1" value="130" />
+      <span class="val" id="val-speedMax">1.30</span>
+    </div>
+  </div>
+  <div class="cfg-row">
+    <label>Accel Rand</label>
+    <label class="cfg-toggle">
+      <input type="checkbox" id="cfg-accelRandom" />
+      <span class="track"></span>
+    </label>
+  </div>
+  <div class="cfg-sub" id="sub-accelRandom">
+    <div class="cfg-row">
+      <label>Accel Min</label>
+      <input type="range" id="cfg-accelMin" min="10" max="100" step="1" value="70" />
+      <span class="val" id="val-accelMin">0.70</span>
+    </div>
+    <div class="cfg-row">
+      <label>Accel Max</label>
+      <input type="range" id="cfg-accelMax" min="100" max="200" step="1" value="130" />
+      <span class="val" id="val-accelMax">1.30</span>
+    </div>
+  </div>
+
+  <div class="cfg-divider"></div>
+  <button id="btn-export">Export JSON</button>
+</div>
+
 <div id="aim-info">aim &amp; fire</div>
 
 <svg id="sky" xmlns="http://www.w3.org/2000/svg"></svg>
 
+<!-- Color Map Tools (generic, reusable) -->
+<script src="../tools/colorMaps/colorWheel.js"></script>
+<script src="../tools/colorMaps/colorInput.js"></script>
+<script src="../tools/colorMaps/colorSwatches.js"></script>
+<script src="../tools/colorMaps/colorHarmony.js"></script>
+
 <script>
 // ─── Setup ───
 const svg = document.getElementById('sky');
-const W = () => window.innerWidth - 200;
+const configPanel = document.getElementById('config-panel');
+let configOpen = false;
+
+const W = () => {
+  let w = window.innerWidth - 200; // right type-panel
+  if (configOpen) w -= 320;         // left config-panel
+  return w;
+};
 const H = () => window.innerHeight;
+
+function svgLeft() { return configOpen ? 320 : 0; }
 
 function resizeSVG() {
   svg.setAttribute('width', W());
   svg.setAttribute('height', H());
   svg.setAttribute('viewBox', `0 0 ${W()} ${H()}`);
+  svg.style.marginLeft = svgLeft() + 'px';
 }
 resizeSVG();
 window.addEventListener('resize', resizeSVG);
+
+// ─── JSON config file mapping ───
+const CONFIG_FILES = ['classicBoom.json', 'ringHalo.json', 'starScatter.json', 'willowCascade.json'];
+const CONFIG_NAMES = ['Classic Boom', 'Ring Halo', 'Star Scatter', 'Willow Cascade'];
+const TYPE_NAMES = ['classic', 'ring', 'star', 'willow'];
+
+// Loaded configs array (one per burst type)
+const burstConfigs = [null, null, null, null];
+
+// Default config template (used if JSON fails to load)
+function defaultConfig(name) {
+  return {
+    version: '1.0', name,
+    burst: { density: 60, radius: 180, consistency: 0.7, flameSize: 2.0 },
+    effects: { colorRandom: true, color: '#ff4444', colorTool: 'colorWheel', brightness: 1.0, contrast: 1.0, hue: 0, saturation: 1.0, tone: 0.5 },
+    shoot: {
+      speed: 500, acceleration: 80,
+      endBurstRandom: true, endpointMaxRange: 0.9, endpointMinRange: 0.4,
+      consistency: { speedRandom: false, speedMin: 0.7, speedMax: 1.3, accelerationRandom: false, accelerationMin: 0.7, accelerationMax: 1.3 }
+    },
+    exportedAt: null
+  };
+}
+
+// ─── Load configs from JSON on startup ───
+async function loadConfigs() {
+  for (let i = 0; i < CONFIG_FILES.length; i++) {
+    try {
+      const res = await fetch(CONFIG_FILES[i]);
+      if (res.ok) {
+        burstConfigs[i] = await res.json();
+      } else {
+        burstConfigs[i] = defaultConfig(CONFIG_NAMES[i]);
+      }
+    } catch (e) {
+      burstConfigs[i] = defaultConfig(CONFIG_NAMES[i]);
+    }
+  }
+  syncPanelFromConfig(currentType);
+}
 
 // ─── Stars background ───
 function createStars() {
@@ -139,14 +495,12 @@ function createStars() {
 createStars();
 
 // ─── Launcher ───
-let launcherAngle = -Math.PI / 2; // straight up
-let launcherPower = 0.7; // 0..1
+let launcherAngle = -Math.PI / 2;
+let launcherPower = 0.7;
 let currentType = 0;
-const TYPE_NAMES = ['classic', 'ring', 'star', 'willow'];
 const LAUNCH_COOLDOWN = 0.3;
 let launchTimer = 0;
 
-// Launcher graphics
 const launcherGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 svg.appendChild(launcherGroup);
 
@@ -225,10 +579,166 @@ function randomPalette() {
   return PALETTES[Math.floor(Math.random() * PALETTES.length)];
 }
 
+// ─── Apply effects filters to a color ───
+function applyEffects(hexColor, cfg) {
+  if (!cfg) return hexColor;
+  const eff = cfg.effects;
+
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexColor);
+  if (!m) return hexColor;
+  let r = parseInt(m[1], 16) / 255;
+  let g = parseInt(m[2], 16) / 255;
+  let b = parseInt(m[3], 16) / 255;
+
+  // Brightness
+  const bright = eff.brightness != null ? eff.brightness : 1;
+  r *= bright; g *= bright; b *= bright;
+
+  // Contrast
+  const con = eff.contrast != null ? eff.contrast : 1;
+  r = (r - 0.5) * con + 0.5;
+  g = (g - 0.5) * con + 0.5;
+  b = (b - 0.5) * con + 0.5;
+
+  // Hue rotation
+  const hueShift = eff.hue || 0;
+  if (hueShift !== 0) {
+    const hsl = rgbToHsl(r * 255, g * 255, b * 255);
+    hsl.h = (hsl.h + hueShift) % 360;
+    if (hsl.h < 0) hsl.h += 360;
+    const rgb2 = hslToRgb(hsl.h, hsl.s, hsl.l);
+    r = rgb2.r / 255; g = rgb2.g / 255; b = rgb2.b / 255;
+  }
+
+  // Saturation
+  const sat = eff.saturation != null ? eff.saturation : 1;
+  if (sat !== 1) {
+    const gray = 0.2989 * r + 0.587 * g + 0.114 * b;
+    r = gray + (r - gray) * sat;
+    g = gray + (g - gray) * sat;
+    b = gray + (b - gray) * sat;
+  }
+
+  // Tone (darken < 0.5, lighten > 0.5)
+  const tone = eff.tone != null ? eff.tone : 0.5;
+  if (tone < 0.5) {
+    const amt = (0.5 - tone) * 0.5;
+    r *= (1 - amt); g *= (1 - amt); b *= (1 - amt);
+  } else if (tone > 0.5) {
+    const amt = (tone - 0.5) * 0.5;
+    r += (1 - r) * amt; g += (1 - g) * amt; b += (1 - b) * amt;
+  }
+
+  r = Math.max(0, Math.min(1, r));
+  g = Math.max(0, Math.min(1, g));
+  b = Math.max(0, Math.min(1, b));
+  const toHex = v => { const h = Math.round(v * 255).toString(16); return h.length === 1 ? '0' + h : h; };
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+// ─── HSL Conversions ───
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return { h: h * 360, s, l };
+}
+
+function hslToRgb(h, s, l) {
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h / 360 + 1/3);
+    g = hue2rgb(p, q, h / 360);
+    b = hue2rgb(p, q, h / 360 - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
 // ─── Firework state ───
 const rockets = [];
 const bursts = [];
 const trails = [];
+
+// ─── Get config-aware shoot parameters ───
+function getShootParams() {
+  const cfg = burstConfigs[currentType];
+  if (!cfg) return { speed: 400 + launcherPower * 350, gravity: 80, fuseTime: 0.6 + launcherPower * 0.5 };
+
+  const shoot = cfg.shoot;
+  let speed = shoot.speed || 500;
+  let accel = shoot.acceleration || 80;
+
+  // Apply random consistency if enabled (relative to slider value)
+  if (shoot.consistency.speedRandom) {
+    const minMul = shoot.consistency.speedMin || 0.7;
+    const maxMul = shoot.consistency.speedMax || 1.3;
+    speed *= minMul + Math.random() * (maxMul - minMul);
+  }
+  if (shoot.consistency.accelerationRandom) {
+    const minMul = shoot.consistency.accelerationMin || 0.7;
+    const maxMul = shoot.consistency.accelerationMax || 1.3;
+    accel *= minMul + Math.random() * (maxMul - minMul);
+  }
+
+  // Fuse time from endpoint range
+  let fuseTime;
+  if (shoot.endBurstRandom) {
+    const minR = shoot.endpointMinRange || 0.3;
+    const maxR = shoot.endpointMaxRange || 0.9;
+    fuseTime = (minR + Math.random() * (maxR - minR)) * (0.6 + launcherPower * 0.5) * 1.5;
+  } else {
+    fuseTime = 0.6 + launcherPower * 0.5;
+  }
+
+  // Scale speed by launcher power
+  speed = speed * (0.5 + launcherPower * 0.5);
+
+  return { speed, gravity: accel, fuseTime };
+}
+
+// ─── Get palette considering color config ───
+function getConfigPalette() {
+  const cfg = burstConfigs[currentType];
+  if (!cfg) return randomPalette();
+
+  if (cfg.effects.colorRandom) {
+    const pal = randomPalette();
+    return pal.map(c => applyEffects(c, cfg));
+  } else {
+    const base = cfg.effects.color || '#ff4444';
+    const hsl = rgbToHsl(
+      parseInt(base.slice(1,3), 16),
+      parseInt(base.slice(3,5), 16),
+      parseInt(base.slice(5,7), 16)
+    );
+    const palette = [];
+    for (let i = 0; i < 5; i++) {
+      const h = (hsl.h + (i - 2) * 15) % 360;
+      const l = Math.max(0.2, Math.min(0.9, hsl.l + (i - 2) * 0.1));
+      const rgb = hslToRgb(h < 0 ? h + 360 : h, hsl.s, l);
+      const hex = '#' + [rgb.r, rgb.g, rgb.b].map(v => v.toString(16).padStart(2, '0')).join('');
+      palette.push(applyEffects(hex, cfg));
+    }
+    return palette;
+  }
+}
 
 // ─── Launch ───
 function launchFirework() {
@@ -237,9 +747,9 @@ function launchFirework() {
 
   const cx = W() / 2;
   const cy = H() - 30;
-  const speed = 400 + launcherPower * 350;
-  const vx = Math.cos(launcherAngle) * speed;
-  const vy = Math.sin(launcherAngle) * speed;
+  const params = getShootParams();
+  const vx = Math.cos(launcherAngle) * params.speed;
+  const vy = Math.sin(launcherAngle) * params.speed;
 
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   el.setAttribute('cx', cx);
@@ -253,24 +763,37 @@ function launchFirework() {
     x: cx, y: cy,
     vx, vy,
     age: 0,
-    fuseTime: 0.6 + launcherPower * 0.5,
+    fuseTime: params.fuseTime,
+    gravity: params.gravity,
     type: currentType,
-    palette: randomPalette(),
+    palette: getConfigPalette(),
     trailTimer: 0
   });
 }
 
-// ─── Burst generators ───
+// ─── Burst generators (config-aware) ───
+function getBurstParams(typeIdx) {
+  const cfg = burstConfigs[typeIdx];
+  if (!cfg) return { density: 60, radius: 180, consistency: 0.7, flameSize: 2.0 };
+  return {
+    density: cfg.burst.density,
+    radius: cfg.burst.radius,
+    consistency: cfg.burst.consistency,
+    flameSize: cfg.burst.flameSize
+  };
+}
+
 function spawnClassicBloom(x, y, palette) {
-  const count = 50 + Math.floor(Math.random() * 30);
+  const p = getBurstParams(0);
+  const count = Math.floor(p.density * (0.5 + p.consistency * 0.5)) + Math.floor(Math.random() * p.density * (1 - p.consistency) * 0.5);
   for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
-    const speed = 80 + Math.random() * 180;
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * (1 - p.consistency) * 0.6;
+    const speed = p.radius * 0.4 + Math.random() * p.radius * 0.6;
     const color = palette[Math.floor(Math.random() * palette.length)];
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     el.setAttribute('cx', x);
     el.setAttribute('cy', y);
-    el.setAttribute('r', 1.5 + Math.random() * 2);
+    el.setAttribute('r', p.flameSize * (0.5 + Math.random() * 0.5));
     el.setAttribute('fill', color);
     svg.appendChild(el);
     bursts.push({
@@ -287,18 +810,19 @@ function spawnClassicBloom(x, y, palette) {
 }
 
 function spawnRingHalo(x, y, palette) {
+  const p = getBurstParams(1);
   const rings = 2 + Math.floor(Math.random() * 2);
   for (let r = 0; r < rings; r++) {
-    const count = 30 + Math.floor(Math.random() * 20);
-    const baseSpeed = 100 + r * 70;
+    const count = Math.floor(p.density * (0.6 + p.consistency * 0.4));
+    const baseSpeed = p.radius * 0.5 + r * (p.radius * 0.3);
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
-      const speed = baseSpeed + (Math.random() - 0.5) * 20;
+      const speed = baseSpeed + (Math.random() - 0.5) * (1 - p.consistency) * 40;
       const color = palette[(i + r) % palette.length];
       const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       el.setAttribute('cx', x);
       el.setAttribute('cy', y);
-      el.setAttribute('r', 1.5 + Math.random());
+      el.setAttribute('r', p.flameSize * (0.5 + Math.random() * 0.3));
       el.setAttribute('fill', color);
       svg.appendChild(el);
       bursts.push({
@@ -313,7 +837,6 @@ function spawnRingHalo(x, y, palette) {
       });
     }
   }
-  // Center flash
   const flash = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   flash.setAttribute('cx', x);
   flash.setAttribute('cy', y);
@@ -327,18 +850,19 @@ function spawnRingHalo(x, y, palette) {
 }
 
 function spawnStarScatter(x, y, palette) {
+  const p = getBurstParams(2);
   const arms = 5;
-  const perArm = 12;
+  const perArm = Math.floor(p.density / arms);
   for (let a = 0; a < arms; a++) {
     const baseAngle = (Math.PI * 2 * a) / arms - Math.PI / 2;
     for (let i = 0; i < perArm; i++) {
-      const speed = 60 + i * 18;
-      const jitter = (Math.random() - 0.5) * 0.15;
+      const speed = p.radius * 0.25 + i * (p.radius / perArm) * 0.8;
+      const jitter = (Math.random() - 0.5) * (1 - p.consistency) * 0.3;
       const color = palette[i % palette.length];
       const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       el.setAttribute('cx', x);
       el.setAttribute('cy', y);
-      el.setAttribute('r', 2 + Math.random() * 1.5);
+      el.setAttribute('r', p.flameSize * (0.6 + Math.random() * 0.4));
       el.setAttribute('fill', color);
       svg.appendChild(el);
       bursts.push({
@@ -353,7 +877,6 @@ function spawnStarScatter(x, y, palette) {
       });
     }
   }
-  // Cross sparkle at center
   for (let i = 0; i < arms; i++) {
     const a = (Math.PI * 2 * i) / arms - Math.PI / 2;
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -373,15 +896,16 @@ function spawnStarScatter(x, y, palette) {
 }
 
 function spawnWillowCascade(x, y, palette) {
-  const count = 40 + Math.floor(Math.random() * 20);
+  const p = getBurstParams(3);
+  const count = Math.floor(p.density * (0.7 + p.consistency * 0.3)) + Math.floor(Math.random() * p.density * (1 - p.consistency) * 0.4);
   for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
-    const speed = 50 + Math.random() * 100;
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * (1 - p.consistency) * 0.8;
+    const speed = p.radius * 0.3 + Math.random() * p.radius * 0.5;
     const color = palette[Math.floor(Math.random() * palette.length)];
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     el.setAttribute('cx', x);
     el.setAttribute('cy', y);
-    el.setAttribute('r', 1 + Math.random() * 1.5);
+    el.setAttribute('r', p.flameSize * (0.4 + Math.random() * 0.6));
     el.setAttribute('fill', color);
     svg.appendChild(el);
     bursts.push({
@@ -399,7 +923,7 @@ function spawnWillowCascade(x, y, palette) {
 
 const BURST_FN = [spawnClassicBloom, spawnRingHalo, spawnStarScatter, spawnWillowCascade];
 
-// ─── Trail particles (faint afterimages) ───
+// ─── Trail particles ───
 function spawnTrail(x, y, color, size) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   el.setAttribute('cx', x);
@@ -414,12 +938,15 @@ function spawnTrail(x, y, color, size) {
 // ─── Input ───
 const keys = {};
 window.addEventListener('keydown', e => {
+  // Don't capture keys when typing in config panel inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   keys[e.code] = true;
   if (e.code === 'Space') { launchFirework(); e.preventDefault(); }
   if (e.code === 'Digit1' || e.code === 'Numpad1') selectType(0);
   if (e.code === 'Digit2' || e.code === 'Numpad2') selectType(1);
   if (e.code === 'Digit3' || e.code === 'Numpad3') selectType(2);
   if (e.code === 'Digit4' || e.code === 'Numpad4') selectType(3);
+  if (e.code === 'KeyP') toggleConfigPanel();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -428,7 +955,250 @@ window.selectType = function(idx) {
   for (let i = 0; i < 4; i++) {
     document.getElementById('btn-' + (i + 1)).classList.toggle('active', i === idx);
   }
+  syncPanelFromConfig(idx);
 };
+
+function toggleConfigPanel() {
+  configOpen = !configOpen;
+  configPanel.classList.toggle('open', configOpen);
+  resizeSVG();
+}
+
+// ─── Config Panel <-> Config Object sync ───
+const $ = id => document.getElementById(id);
+
+function syncPanelFromConfig(typeIdx) {
+  const cfg = burstConfigs[typeIdx];
+  if (!cfg) return;
+
+  $('config-title').textContent = cfg.name;
+
+  // Burst
+  $('cfg-density').value = cfg.burst.density;
+  $('val-density').textContent = cfg.burst.density;
+  $('cfg-radius').value = cfg.burst.radius;
+  $('val-radius').textContent = cfg.burst.radius;
+  $('cfg-consistency').value = Math.round(cfg.burst.consistency * 100);
+  $('val-consistency').textContent = cfg.burst.consistency.toFixed(2);
+  $('cfg-flameSize').value = Math.round(cfg.burst.flameSize * 10);
+  $('val-flameSize').textContent = cfg.burst.flameSize.toFixed(1);
+
+  // Effects
+  $('cfg-colorRandom').checked = cfg.effects.colorRandom;
+  $('cfg-color').value = cfg.effects.color;
+  $('val-color').textContent = cfg.effects.color;
+  updateColorRowVisibility();
+  $('cfg-colorTool').value = cfg.effects.colorTool || 'colorWheel';
+  mountColorTool();
+  $('cfg-brightness').value = Math.round(cfg.effects.brightness * 100);
+  $('val-brightness').textContent = cfg.effects.brightness.toFixed(2);
+  $('cfg-contrast').value = Math.round(cfg.effects.contrast * 100);
+  $('val-contrast').textContent = cfg.effects.contrast.toFixed(2);
+  $('cfg-hue').value = cfg.effects.hue;
+  $('val-hue').textContent = cfg.effects.hue;
+  $('cfg-saturation').value = Math.round(cfg.effects.saturation * 100);
+  $('val-saturation').textContent = cfg.effects.saturation.toFixed(2);
+  $('cfg-tone').value = Math.round(cfg.effects.tone * 100);
+  $('val-tone').textContent = cfg.effects.tone.toFixed(2);
+
+  // Shoot
+  $('cfg-speed').value = cfg.shoot.speed;
+  $('val-speed').textContent = cfg.shoot.speed;
+  $('cfg-acceleration').value = cfg.shoot.acceleration;
+  $('val-acceleration').textContent = cfg.shoot.acceleration;
+  $('cfg-endBurstRandom').checked = cfg.shoot.endBurstRandom;
+  $('cfg-endpointMax').value = Math.round(cfg.shoot.endpointMaxRange * 100);
+  $('val-endpointMax').textContent = cfg.shoot.endpointMaxRange.toFixed(2);
+  $('cfg-endpointMin').value = Math.round(cfg.shoot.endpointMinRange * 100);
+  $('val-endpointMin').textContent = cfg.shoot.endpointMinRange.toFixed(2);
+  updateEndBurstVisibility();
+
+  // Consistency
+  $('cfg-speedRandom').checked = cfg.shoot.consistency.speedRandom;
+  $('cfg-speedMin').value = Math.round(cfg.shoot.consistency.speedMin * 100);
+  $('val-speedMin').textContent = cfg.shoot.consistency.speedMin.toFixed(2);
+  $('cfg-speedMax').value = Math.round(cfg.shoot.consistency.speedMax * 100);
+  $('val-speedMax').textContent = cfg.shoot.consistency.speedMax.toFixed(2);
+  updateSpeedRandomVisibility();
+
+  $('cfg-accelRandom').checked = cfg.shoot.consistency.accelerationRandom;
+  $('cfg-accelMin').value = Math.round(cfg.shoot.consistency.accelerationMin * 100);
+  $('val-accelMin').textContent = cfg.shoot.consistency.accelerationMin.toFixed(2);
+  $('cfg-accelMax').value = Math.round(cfg.shoot.consistency.accelerationMax * 100);
+  $('val-accelMax').textContent = cfg.shoot.consistency.accelerationMax.toFixed(2);
+  updateAccelRandomVisibility();
+}
+
+function readPanelToConfig() {
+  const cfg = burstConfigs[currentType];
+  if (!cfg) return;
+
+  cfg.burst.density = parseInt($('cfg-density').value);
+  cfg.burst.radius = parseInt($('cfg-radius').value);
+  cfg.burst.consistency = parseInt($('cfg-consistency').value) / 100;
+  cfg.burst.flameSize = parseInt($('cfg-flameSize').value) / 10;
+
+  cfg.effects.colorRandom = $('cfg-colorRandom').checked;
+  cfg.effects.color = $('cfg-color').value;
+  cfg.effects.colorTool = $('cfg-colorTool').value;
+  cfg.effects.brightness = parseInt($('cfg-brightness').value) / 100;
+  cfg.effects.contrast = parseInt($('cfg-contrast').value) / 100;
+  cfg.effects.hue = parseInt($('cfg-hue').value);
+  cfg.effects.saturation = parseInt($('cfg-saturation').value) / 100;
+  cfg.effects.tone = parseInt($('cfg-tone').value) / 100;
+
+  cfg.shoot.speed = parseInt($('cfg-speed').value);
+  cfg.shoot.acceleration = parseInt($('cfg-acceleration').value);
+  cfg.shoot.endBurstRandom = $('cfg-endBurstRandom').checked;
+  cfg.shoot.endpointMaxRange = parseInt($('cfg-endpointMax').value) / 100;
+  cfg.shoot.endpointMinRange = parseInt($('cfg-endpointMin').value) / 100;
+
+  cfg.shoot.consistency.speedRandom = $('cfg-speedRandom').checked;
+  cfg.shoot.consistency.speedMin = parseInt($('cfg-speedMin').value) / 100;
+  cfg.shoot.consistency.speedMax = parseInt($('cfg-speedMax').value) / 100;
+  cfg.shoot.consistency.accelerationRandom = $('cfg-accelRandom').checked;
+  cfg.shoot.consistency.accelerationMin = parseInt($('cfg-accelMin').value) / 100;
+  cfg.shoot.consistency.accelerationMax = parseInt($('cfg-accelMax').value) / 100;
+}
+
+// ─── Visibility toggles ───
+function updateColorRowVisibility() {
+  const random = $('cfg-colorRandom').checked;
+  $('row-color').style.opacity = random ? '0.3' : '1';
+  $('row-color').style.pointerEvents = random ? 'none' : 'auto';
+}
+
+function updateEndBurstVisibility() {
+  $('sub-endBurst').style.display = $('cfg-endBurstRandom').checked ? 'block' : 'none';
+}
+
+function updateSpeedRandomVisibility() {
+  $('sub-speedRandom').style.display = $('cfg-speedRandom').checked ? 'block' : 'none';
+}
+
+function updateAccelRandomVisibility() {
+  $('sub-accelRandom').style.display = $('cfg-accelRandom').checked ? 'block' : 'none';
+}
+
+// ─── Color Tool mounting ───
+let activeColorTool = null;
+
+function mountColorTool() {
+  const container = $('color-tool-container');
+  if (activeColorTool && activeColorTool.destroy) activeColorTool.destroy();
+  activeColorTool = null;
+  container.innerHTML = '';
+
+  // Only show when color is not random
+  if ($('cfg-colorRandom').checked) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+
+  const toolKey = $('cfg-colorTool').value;
+  const toolDef = window.ColorMaps && window.ColorMaps[toolKey];
+  if (!toolDef) {
+    container.innerHTML = '<span style="color:#555;font-size:10px;">Color tool not loaded</span>';
+    return;
+  }
+
+  activeColorTool = toolDef.create(container, {
+    color: $('cfg-color').value,
+    onChange: (hex) => {
+      $('cfg-color').value = hex;
+      $('val-color').textContent = hex;
+      readPanelToConfig();
+    }
+  });
+}
+
+// ─── Wire up all panel inputs ───
+function wireSlider(id, valId, fmt) {
+  $(id).addEventListener('input', () => {
+    $(valId).textContent = fmt($(id).value);
+    readPanelToConfig();
+  });
+}
+
+wireSlider('cfg-density', 'val-density', v => v);
+wireSlider('cfg-radius', 'val-radius', v => v);
+wireSlider('cfg-consistency', 'val-consistency', v => (v / 100).toFixed(2));
+wireSlider('cfg-flameSize', 'val-flameSize', v => (v / 10).toFixed(1));
+wireSlider('cfg-brightness', 'val-brightness', v => (v / 100).toFixed(2));
+wireSlider('cfg-contrast', 'val-contrast', v => (v / 100).toFixed(2));
+wireSlider('cfg-hue', 'val-hue', v => v);
+wireSlider('cfg-saturation', 'val-saturation', v => (v / 100).toFixed(2));
+wireSlider('cfg-tone', 'val-tone', v => (v / 100).toFixed(2));
+wireSlider('cfg-speed', 'val-speed', v => v);
+wireSlider('cfg-acceleration', 'val-acceleration', v => v);
+wireSlider('cfg-endpointMax', 'val-endpointMax', v => (v / 100).toFixed(2));
+wireSlider('cfg-endpointMin', 'val-endpointMin', v => (v / 100).toFixed(2));
+wireSlider('cfg-speedMin', 'val-speedMin', v => (v / 100).toFixed(2));
+wireSlider('cfg-speedMax', 'val-speedMax', v => (v / 100).toFixed(2));
+wireSlider('cfg-accelMin', 'val-accelMin', v => (v / 100).toFixed(2));
+wireSlider('cfg-accelMax', 'val-accelMax', v => (v / 100).toFixed(2));
+
+$('cfg-colorRandom').addEventListener('change', () => {
+  readPanelToConfig();
+  updateColorRowVisibility();
+  mountColorTool();
+});
+
+$('cfg-color').addEventListener('input', () => {
+  $('val-color').textContent = $('cfg-color').value;
+  readPanelToConfig();
+  if (activeColorTool && activeColorTool.setColor) {
+    activeColorTool.setColor($('cfg-color').value);
+  }
+});
+
+$('cfg-colorTool').addEventListener('change', () => {
+  readPanelToConfig();
+  mountColorTool();
+});
+
+$('cfg-endBurstRandom').addEventListener('change', () => {
+  readPanelToConfig();
+  updateEndBurstVisibility();
+});
+
+$('cfg-speedRandom').addEventListener('change', () => {
+  readPanelToConfig();
+  updateSpeedRandomVisibility();
+});
+
+$('cfg-accelRandom').addEventListener('change', () => {
+  readPanelToConfig();
+  updateAccelRandomVisibility();
+});
+
+// ─── Export JSON ───
+$('btn-export').addEventListener('click', () => {
+  const cfg = burstConfigs[currentType];
+  if (!cfg) return;
+  readPanelToConfig();
+  cfg.exportedAt = new Date().toISOString();
+
+  const json = JSON.stringify(cfg, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = CONFIG_FILES[currentType];
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const btn = $('btn-export');
+  btn.textContent = 'Exported!';
+  btn.classList.add('exported');
+  setTimeout(() => {
+    btn.textContent = 'Export JSON';
+    btn.classList.remove('exported');
+  }, 1500);
+});
 
 // ─── Skyline silhouette ───
 function drawSkyline() {
@@ -442,7 +1212,6 @@ function drawSkyline() {
     const bw = 20 + Math.random() * 40;
     const bh = 15 + Math.random() * 60;
     d += ` L${x},${baseY} L${x},${baseY - bh}`;
-    // windows
     x += bw;
     d += ` L${x},${baseY - bh} L${x},${baseY}`;
   }
@@ -488,21 +1257,19 @@ function update(now) {
   for (let i = rockets.length - 1; i >= 0; i--) {
     const r = rockets[i];
     r.age += dt;
-    r.vy += 80 * dt; // slight gravity drag on rocket
+    r.vy += (r.gravity || 80) * dt;
     r.x += r.vx * dt;
     r.y += r.vy * dt;
 
     r.el.setAttribute('cx', r.x);
     r.el.setAttribute('cy', r.y);
 
-    // Rocket trail
     r.trailTimer += dt;
     if (r.trailTimer > 0.02) {
       r.trailTimer = 0;
       spawnTrail(r.x + (Math.random() - 0.5) * 3, r.y + (Math.random() - 0.5) * 3, '#ffcc44', 1.5);
     }
 
-    // Detonate
     if (r.age >= r.fuseTime || r.y < 30) {
       r.el.remove();
       BURST_FN[r.type](r.x, r.y, r.palette);
@@ -533,7 +1300,6 @@ function update(now) {
       const shrink = Math.max(0.3, 1 - t * 0.6);
       b.el.setAttribute('r', parseFloat(b.el.getAttribute('r')) > 0 ? shrink * 2.5 : 0);
 
-      // Spawn sub-trails for willow
       if (b.type === 'willow') {
         b.trailTimer = (b.trailTimer || 0) + dt;
         if (b.trailTimer > 0.06 && t < 0.7) {
@@ -587,7 +1353,14 @@ function update(now) {
   requestAnimationFrame(update);
 }
 
-requestAnimationFrame(update);
+// ─── Initialize ───
+loadConfigs().then(() => {
+  updateEndBurstVisibility();
+  updateSpeedRandomVisibility();
+  updateAccelRandomVisibility();
+  updateColorRowVisibility();
+  requestAnimationFrame(update);
+});
 </script>
 </body>
 </html>
