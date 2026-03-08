@@ -227,6 +227,25 @@
     pointer-events: none;
     transition: left 0.3s;
   }
+  #cfg-toggle-btn {
+    pointer-events: all;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 5px 11px;
+    background: rgba(232,101,43,0.13);
+    border: 1px solid rgba(232,101,43,0.35);
+    border-radius: 5px;
+    color: #e8652b;
+    font-size: 10px;
+    font-family: 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #cfg-toggle-btn:hover { background: rgba(232,101,43,0.25); }
   #stamina-bar {
     margin-top: 8px;
     display: flex; align-items: center; gap: 8px;
@@ -267,11 +286,92 @@
     pointer-events: none;
     z-index: 5;
   }
+
+  /* ─── Score / Orb Tracker ─── */
+  #score-display {
+    position: fixed;
+    right: 20px; top: 20px;
+    background: rgba(10,10,30,0.78);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 16px 12px;
+    z-index: 10;
+    pointer-events: none;
+    text-align: right;
+    min-width: 130px;
+  }
+  #score-display .sd-label {
+    color: #7f8fa6; font-size: 9px;
+    text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 3px;
+  }
+  #score-display .sd-value {
+    color: #ffd700; font-size: 20px;
+    font-family: monospace; font-weight: bold; line-height: 1;
+  }
+  #score-display .sd-orb-label { color: #aaddff; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 3px; }
+  #score-display .sd-orb-value { color: #aaddff; font-size: 16px; font-family: monospace; font-weight: bold; }
+  #score-display .sd-goal-bar {
+    width: 100%; height: 4px;
+    background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 5px;
+  }
+  #score-display .sd-goal-fill {
+    height: 100%; background: linear-gradient(90deg, #aaddff, #66aaff);
+    border-radius: 2px; transition: width 0.4s;
+  }
+  #score-display .sd-complete {
+    color: #44ffaa; font-size: 9px;
+    text-transform: uppercase; letter-spacing: 1px; margin-top: 4px;
+    display: none;
+  }
+
+  /* ─── Keymap Overlay ─── */
+  #keymap {
+    position: fixed;
+    right: 20px; bottom: 20px;
+    background: rgba(10,10,30,0.78);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 14px 12px;
+    color: #7f8fa6;
+    font-size: 10px;
+    pointer-events: none;
+    z-index: 10;
+    min-width: 160px;
+  }
+  #keymap .km-title {
+    color: #aab0bb;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 7px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  #keymap .km-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 3px 0;
+  }
+  #keymap .km-key {
+    display: inline-block;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    color: #e8652b;
+    font-size: 9px;
+    min-width: 28px;
+    text-align: center;
+  }
+  #keymap .km-label { color: #8a9ab5; }
 </style>
 </head>
 <body>
 
 <div id="hud">
+  <button id="cfg-toggle-btn">&#9881; Config</button>
   <div>ARROWS: Move &nbsp; SPACE: Jump &nbsp; SHIFT: Latch/De-latch &nbsp; P: Config</div>
   <div id="stamina-bar">
     <span>STAMINA</span>
@@ -294,6 +394,31 @@
   <div class="cfg-tabs" id="cfg-tabs"></div>
   <div class="cfg-body" id="cfg-body"></div>
   <button id="export-btn">Export JSON</button>
+</div>
+
+<div id="score-display">
+  <!-- populated by updateHUD based on itemType -->
+  <div id="sd-coins" style="display:none">
+    <div class="sd-label">Score</div>
+    <div class="sd-value" id="score-text">0</div>
+  </div>
+  <div id="sd-orbs" style="display:none">
+    <div class="sd-orb-label">Orbs Collected</div>
+    <div class="sd-orb-value"><span id="orbs-collected">0</span> <span style="opacity:0.4">/</span> <span id="orbs-total">0</span></div>
+    <div class="sd-goal-bar"><div class="sd-goal-fill" id="orb-goal-fill" style="width:0%"></div></div>
+    <div class="sd-complete" id="orb-complete">&#10003; All Collected!</div>
+  </div>
+</div>
+
+<div id="keymap">
+  <div class="km-title">Controls</div>
+  <div class="km-row"><span class="km-key">&#8592; &#8594;</span><span class="km-label">Move</span></div>
+  <div class="km-row"><span class="km-key">&#8593;</span><span class="km-label">Climb / Fly</span></div>
+  <div class="km-row"><span class="km-key">SPACE</span><span class="km-label">Jump / Wall Jump</span></div>
+  <div class="km-row"><span class="km-key">SHIFT+&#8595;</span><span class="km-label">Drop through platform</span></div>
+  <div class="km-row"><span class="km-key">SHIFT</span><span class="km-label">Latch / De-latch</span></div>
+  <div class="km-row"><span class="km-key">C</span><span class="km-label">Switch wall side</span></div>
+  <div class="km-row"><span class="km-key">P</span><span class="km-label">Config panel</span></div>
 </div>
 
 <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -333,13 +458,31 @@ const configs = {
   obstacles: {
     version: '1.0',
     name: 'Obstacles',
-    enemy: { count: 3, speed: 2.0, damage: 1, staminaDrain: 35, size: 0.8, color: '#ff4444', patrolRange: 3, bobSpeed: 2, bobHeight: 0.1 },
-    danger: { count: 4, damage: 1, staminaDrain: 25, effectRadius: 0.5, pulseSpeed: 3, glowIntensity: 0.4, fallOnTouch: true, fallSpeed: 8 },
-    friendly: { count: 3, staminaRestore: 30, healthRestore: 1, speedBoost: 1.5, boostDuration: 3.0, color: '#44ff88', floatSpeed: 1.5, floatHeight: 0.15, glowPulse: 3 },
-    blocking: { count: 3, size: 1.5, breakable: false, lightEffect: true, lightColor: '#aaaaff', lightIntensity: 0.5, lightPulseSpeed: 2 },
-    lighting: { count: 4, intensity: 0.8, range: 4, color: '#ffeebb', pulseSpeed: 1.5, pulseDelta: 0.3, flickerEnabled: true, flickerSpeed: 8 },
-    movable: { count: 3, weight: 1.0, pushSpeed: 3, fallSpeed: 6, horizontalRange: 3, horizontalSpeed: 1.5, size: 1.0, color: '#cc8844' },
-    mystic: { count: 2, phaseSpeed: 1.5, visibleDuration: 3.0, hiddenDuration: 2.0, color: '#aa66ff', glowIntensity: 0.6, size: 1.0, staminaRestore: 15, bonusOnCatch: true },
+    enemy: { enabled: true, count: 3, speed: 2.0, damage: 1, staminaDrain: 35, size: 0.8, color: '#ff4444', patrolRange: 3, bobSpeed: 2, bobHeight: 0.1,
+      falling: { enabled: true, count: 2, speed: 6.0, size: 0.55, color: '#cc5500', damage: 1, staminaDrain: 30, resetAbove: 18 } },
+    danger: { enabled: true, count: 4, damage: 1, staminaDrain: 25, effectRadius: 0.5, pulseSpeed: 3, glowIntensity: 0.4, fallOnTouch: true, fallSpeed: 8 },
+    friendly: { enabled: true, count: 3, staminaRestore: 30, healthRestore: 1, speedBoost: 1.5, boostDuration: 3.0, color: '#44ff88', floatSpeed: 1.5, floatHeight: 0.15, glowPulse: 3 },
+    blocking: { enabled: true, count: 3, size: 1.5, breakable: false, lightEffect: true, lightColor: '#aaaaff', lightIntensity: 0.5, lightPulseSpeed: 2 },
+    lighting: {
+      count: 4, intensity: 0.8, range: 4, color: '#ffeebb',
+      pulseSpeed: 1.5, pulseDelta: 0.3, flickerEnabled: true, flickerSpeed: 8,
+      enabled: true,
+      itemType: 'coin',
+      coin: {
+        color: '#ffd700', metalness: 0.9, roughness: 0.1,
+        revolveEnabled: true, revolveSpeed: 2.0,
+        collectAnim: 0, collectAnimTypes: ['Burst', 'Spiral', 'None']
+      },
+      orb: {
+        color: '#aaddff', emissiveIntensity: 0.7,
+        throbEnabled: true, throbSpeed: 1.5, throbRange: 0.12,
+        glowIntensity: 0.8, goalEnabled: true,
+        collectAnim: 0, collectAnimTypes: ['Burst', 'Expand', 'None']
+      },
+      score: { enabled: true, perCoin: 10 }
+    },
+    movable: { enabled: true, count: 3, weight: 1.0, pushSpeed: 3, fallSpeed: 6, horizontalRange: 3, horizontalSpeed: 1.5, size: 1.0, color: '#cc8844' },
+    mystic: { enabled: true, count: 2, phaseSpeed: 1.5, visibleDuration: 3.0, hiddenDuration: 2.0, color: '#aa66ff', glowIntensity: 0.6, size: 1.0, staminaRestore: 15, bonusOnCatch: true },
     exportedAt: null
   },
   climbStructure: {
@@ -350,6 +493,16 @@ const configs = {
     textures: { active: 0, list: ['stone', 'brick', 'ice', 'wood', 'vine', 'metal'] },
     crumbling: { enabled: true, frequency: 0.15, crumbleTime: 1.5, warningTime: 0.8, shakeIntensity: 0.03, respawnTime: 5.0 },
     wallLight: { enabled: true, color: '#4488cc', intensity: 0.3, pulseSpeed: 2 },
+    climbMode: 'jetpack',
+    wallSwitch: {
+      enabled: true,
+      changeSpeed: 3.0,
+      animationType: 0,
+      animationTypes: ['Slide', 'Instant', 'Flip'],
+      foreshortLeftToRight: true,
+      foreshortRightToLeft: false,
+      foreshortScale: 0.3
+    },
     exportedAt: null
   },
   atmosphere: {
@@ -390,7 +543,7 @@ async function loadConfigs() {
   for (const [key, file] of Object.entries(files)) {
     try {
       const resp = await fetch(file);
-      if (resp.ok) configs[key] = await resp.json();
+      if (resp.ok) configs[key] = { ...configs[key], ...(await resp.json()) };
     } catch (e) { /* use defaults */ }
   }
 }
@@ -405,6 +558,13 @@ const tabsEl = document.getElementById('cfg-tabs');
 const bodyEl = document.getElementById('cfg-body');
 const exportBtn = document.getElementById('export-btn');
 const hudEl = document.getElementById('hud');
+
+// Config toggle button (same behaviour as pressing P)
+document.getElementById('cfg-toggle-btn').addEventListener('click', () => {
+  panelOpen = !panelOpen;
+  panel.classList.toggle('open', panelOpen);
+  hudEl.style.left = panelOpen ? '360px' : '20px';
+});
 
 // ═══════════════════════════════════════════════════════════
 //  PANEL BUILDER HELPERS
@@ -436,7 +596,11 @@ function addSlider(parent, label, cfgPath, min, max, step, opts = {}) {
   parent.appendChild(row);
   
   syncSlider(inp);
-  inp.addEventListener('input', () => syncSlider(inp));
+  // Only update the display label on input — config is written by updateFromPanel each frame
+  inp.addEventListener('input', () => {
+    const valSpan = inp.nextElementSibling;
+    if (valSpan) valSpan.textContent = parseFloat(inp.value).toFixed(2);
+  });
 }
 
 function addToggle(parent, label, cfgPath) {
@@ -454,7 +618,7 @@ function addToggle(parent, label, cfgPath) {
   parent.appendChild(row);
   
   syncToggle(inp);
-  inp.addEventListener('change', () => syncToggle(inp));
+  // updateFromPanel handles DOM → config each frame; no reset listener needed
 }
 
 function addSelect(parent, label, cfgPath, options) {
@@ -465,20 +629,62 @@ function addSelect(parent, label, cfgPath, options) {
   const sel = document.createElement('select');
   sel.className = 'cfg-select';
   sel.dataset.cfg = cfgPath;
-  
+
   options.forEach((opt, i) => {
     const option = document.createElement('option');
     option.value = i;
     option.textContent = opt;
     sel.appendChild(option);
   });
-  
+
   row.appendChild(lbl);
   row.appendChild(sel);
   parent.appendChild(row);
-  
+
   syncSelect(sel);
-  sel.addEventListener('change', () => syncSelect(sel));
+  // updateFromPanel handles DOM → config each frame; no reset listener needed
+}
+
+function addRadio(parent, label, cfgPath, options) {
+  const row = document.createElement('div');
+  row.className = 'cfg-row';
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+  row.appendChild(lbl);
+
+  const group = document.createElement('div');
+  group.style.cssText = 'display:flex;gap:12px;flex:1;align-items:center;';
+
+  const path = cfgPath.split('.');
+  let current = configs;
+  for (const k of path) current = current[k];
+
+  options.forEach(opt => {
+    const wrap = document.createElement('label');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:4px;color:#8a9ab5;font-size:10px;cursor:pointer;';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = cfgPath;
+    radio.value = opt.value;
+    radio.dataset.cfg = cfgPath;
+    radio.dataset.radioGroup = '1';
+    radio.checked = (current === opt.value);
+    radio.style.accentColor = '#e8652b';
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        const pArr = cfgPath.split('.');
+        let obj = configs;
+        for (let i = 0; i < pArr.length - 1; i++) obj = obj[pArr[i]];
+        obj[pArr[pArr.length - 1]] = opt.value;
+      }
+    });
+    wrap.appendChild(radio);
+    wrap.appendChild(document.createTextNode(opt.label));
+    group.appendChild(wrap);
+  });
+
+  row.appendChild(group);
+  parent.appendChild(row);
 }
 
 function syncSlider(inp) {
@@ -514,6 +720,8 @@ function updateFromPanel() {
     
     if (el.type === 'checkbox') {
       obj[key] = el.checked;
+    } else if (el.type === 'radio') {
+      if (el.checked) obj[key] = el.value;
     } else if (el.type === 'range') {
       let val = parseFloat(el.value);
       if (el.dataset.negate) val = -val;
@@ -585,37 +793,78 @@ function buildPlayerTab() {
 }
 
 function buildObstaclesTab() {
-  addSection(bodyEl, 'Enemy');
+  addSection(bodyEl, 'Side-to-Side Obstacle');
+  addToggle(bodyEl, 'Enabled', 'obstacles.enemy.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.enemy.count', 0, 10, 1);
   addSlider(bodyEl, 'Speed', 'obstacles.enemy.speed', 0.5, 5, 0.1);
   addSlider(bodyEl, 'Stamina Drain', 'obstacles.enemy.staminaDrain', 10, 100, 5);
-  
+
+  addSection(bodyEl, 'Falling Obstacle');
+  addToggle(bodyEl, 'Enabled', 'obstacles.enemy.falling.enabled');
+  addSlider(bodyEl, 'Count', 'obstacles.enemy.falling.count', 0, 6, 1);
+  addSlider(bodyEl, 'Fall Speed', 'obstacles.enemy.falling.speed', 1, 15, 0.5);
+  addSlider(bodyEl, 'Size', 'obstacles.enemy.falling.size', 0.2, 1.5, 0.05);
+  addSlider(bodyEl, 'Stamina Drain', 'obstacles.enemy.falling.staminaDrain', 5, 60, 5);
+  addSlider(bodyEl, 'Reset Height', 'obstacles.enemy.falling.resetAbove', 5, 40, 1);
+
   addSection(bodyEl, 'Danger');
+  addToggle(bodyEl, 'Enabled', 'obstacles.danger.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.danger.count', 0, 10, 1);
   addSlider(bodyEl, 'Stamina Drain', 'obstacles.danger.staminaDrain', 10, 50, 5);
   addToggle(bodyEl, 'Fall on Touch', 'obstacles.danger.fallOnTouch');
-  
+
   addSection(bodyEl, 'Friendly');
+  addToggle(bodyEl, 'Enabled', 'obstacles.friendly.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.friendly.count', 0, 10, 1);
   addSlider(bodyEl, 'Stamina Restore', 'obstacles.friendly.staminaRestore', 10, 100, 5);
   addSlider(bodyEl, 'Speed Boost', 'obstacles.friendly.speedBoost', 1, 3, 0.1);
-  
+
   addSection(bodyEl, 'Blocking');
+  addToggle(bodyEl, 'Enabled', 'obstacles.blocking.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.blocking.count', 0, 10, 1);
   addSlider(bodyEl, 'Size', 'obstacles.blocking.size', 0.5, 3, 0.1);
   addToggle(bodyEl, 'Light Effect', 'obstacles.blocking.lightEffect');
-  
-  addSection(bodyEl, 'Lighting');
+
+  addSection(bodyEl, 'Coins / Orbs');
+  addToggle(bodyEl, 'Enabled', 'obstacles.lighting.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.lighting.count', 0, 10, 1);
+  addRadio(bodyEl, 'Type', 'obstacles.lighting.itemType',
+    [{ value: 'coin', label: 'Coin' }, { value: 'orb', label: 'Orb' }]);
+  // Respawn when type changes so geometry updates
+  bodyEl.querySelectorAll('input[name="obstacles.lighting.itemType"]').forEach(r => {
+    r.addEventListener('change', respawnLightingObstacles);
+  });
+
+  addSection(bodyEl, 'Coin Settings');
+  addSlider(bodyEl, 'Revolve Speed', 'obstacles.lighting.coin.revolveSpeed', 0.5, 8, 0.1);
+  addToggle(bodyEl, 'Revolve', 'obstacles.lighting.coin.revolveEnabled');
+  addSelect(bodyEl, 'Collect Anim', 'obstacles.lighting.coin.collectAnim',
+    ['Burst', 'Spiral', 'None']);
+
+  addSection(bodyEl, 'Orb Settings');
+  addToggle(bodyEl, 'Throb', 'obstacles.lighting.orb.throbEnabled');
+  addSlider(bodyEl, 'Throb Speed', 'obstacles.lighting.orb.throbSpeed', 0.5, 5, 0.1);
+  addSlider(bodyEl, 'Throb Range', 'obstacles.lighting.orb.throbRange', 0.02, 0.4, 0.01);
+  addToggle(bodyEl, 'Goal Mode', 'obstacles.lighting.orb.goalEnabled');
+  addSelect(bodyEl, 'Collect Anim', 'obstacles.lighting.orb.collectAnim',
+    ['Burst', 'Expand', 'None']);
+
+  addSection(bodyEl, 'Score');
+  addToggle(bodyEl, 'Track Score', 'obstacles.lighting.score.enabled');
+  addSlider(bodyEl, 'Per Coin', 'obstacles.lighting.score.perCoin', 1, 100, 1);
+
+  addSection(bodyEl, 'Light FX');
   addSlider(bodyEl, 'Intensity', 'obstacles.lighting.intensity', 0.1, 2, 0.1);
   addSlider(bodyEl, 'Range', 'obstacles.lighting.range', 1, 10, 0.5);
-  
+
   addSection(bodyEl, 'Movable');
+  addToggle(bodyEl, 'Enabled', 'obstacles.movable.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.movable.count', 0, 10, 1);
   addSlider(bodyEl, 'Horiz Range', 'obstacles.movable.horizontalRange', 1, 10, 0.5);
   addSlider(bodyEl, 'Horiz Speed', 'obstacles.movable.horizontalSpeed', 0.5, 5, 0.1);
-  
+
   addSection(bodyEl, 'Mystic (Surprise!)');
+  addToggle(bodyEl, 'Enabled', 'obstacles.mystic.enabled');
   addSlider(bodyEl, 'Count', 'obstacles.mystic.count', 0, 5, 1);
   addSlider(bodyEl, 'Phase Speed', 'obstacles.mystic.phaseSpeed', 0.5, 3, 0.1);
   addSlider(bodyEl, 'Visible Time', 'obstacles.mystic.visibleDuration', 1, 5, 0.5);
@@ -647,6 +896,21 @@ function buildClimbStructureTab() {
   
   addSection(bodyEl, 'Texture');
   addSelect(bodyEl, 'Active', 'climbStructure.textures.active', configs.climbStructure.textures.list);
+
+  addSection(bodyEl, 'Climb or Jetpack');
+  addRadio(bodyEl, 'Mode', 'climbStructure.climbMode', [
+    { value: 'jetpack', label: 'Jetpack (fly anywhere)' },
+    { value: 'climb',   label: 'Climb (wall required)' }
+  ]);
+
+  addSection(bodyEl, 'Wall Side Switch (C key)');
+  addToggle(bodyEl, 'Enabled', 'climbStructure.wallSwitch.enabled');
+  addSlider(bodyEl, 'Change Speed', 'climbStructure.wallSwitch.changeSpeed', 0.5, 10, 0.5);
+  addSelect(bodyEl, 'Animation', 'climbStructure.wallSwitch.animationType',
+            configs.climbStructure.wallSwitch.animationTypes);
+  addToggle(bodyEl, 'Foreshort L→R', 'climbStructure.wallSwitch.foreshortLeftToRight');
+  addToggle(bodyEl, 'Foreshort R→L', 'climbStructure.wallSwitch.foreshortRightToLeft');
+  addSlider(bodyEl, 'Foreshort Scale', 'climbStructure.wallSwitch.foreshortScale', 0.05, 0.95, 0.05);
 }
 
 function buildAtmosphereTab() {
@@ -771,6 +1035,11 @@ const gameState = {
   isClimbing: false,
   isLatched: false,
   isGrounded: false,
+  wallContact: null,
+  wallSide: 'inner',
+  outerWall: null,
+  sideTransition: null,
+  dropThrough: 0,
   stamina: 100,
   health: 5,
   momentum: 0,
@@ -780,7 +1049,10 @@ const gameState = {
   time: 0,
   cameraShake: { active: false, time: 0, intensity: 0 },
   nextCheckpoint: 0,
-  segmentCount: 0
+  segmentCount: 0,
+  nextObstacleSpawnY: 0,
+  score: 0,
+  orbsCollected: 0
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -812,32 +1084,34 @@ function createPlayer() {
 // ═══════════════════════════════════════════════════════════
 function generateClimbSegment(yStart) {
   const cfg = configs.climbStructure.generation;
-  const seg = { walls: [], platforms: [], ledges: [], crumbling: [] };
-  
+  const seg = { walls: [], platforms: [], ledges: [], crumbling: [], yStart, segHeight: cfg.segmentHeight };
+
   // Seed-based random
   let seed = cfg.seed + Math.floor(yStart / cfg.segmentHeight);
   const rand = () => {
     seed = (seed * 9301 + 49297) % 233280;
     return seed / 233280;
   };
-  
-  const width = cfg.minWidth + rand() * (cfg.maxWidth - cfg.minWidth);
+
+  // Expand width by 5% of its calculated range
+  let width = cfg.minWidth + rand() * (cfg.maxWidth - cfg.minWidth);
+  width *= 1.05;
   const leftX = -width / 2;
   const rightX = width / 2;
-  
+
   // Left wall
   const leftGeom = new THREE.BoxGeometry(cfg.wallThickness, cfg.segmentHeight, 1);
   const leftMat = new THREE.MeshStandardMaterial({ color: getTextureColor() });
   const leftMesh = new THREE.Mesh(leftGeom, leftMat);
   leftMesh.position.set(leftX, yStart + cfg.segmentHeight / 2, 0);
   scene.add(leftMesh);
-  seg.walls.push({ mesh: leftMesh, x: leftX });
-  
+  seg.walls.push({ mesh: leftMesh, x: leftX, side: 'left' });
+
   // Right wall
   const rightMesh = new THREE.Mesh(leftGeom.clone(), leftMat.clone());
   rightMesh.position.set(rightX, yStart + cfg.segmentHeight / 2, 0);
   scene.add(rightMesh);
-  seg.walls.push({ mesh: rightMesh, x: rightX });
+  seg.walls.push({ mesh: rightMesh, x: rightX, side: 'right' });
   
   // Gaps
   if (rand() < cfg.gapFrequency) {
@@ -896,106 +1170,199 @@ function getTextureColor() {
 // ═══════════════════════════════════════════════════════════
 //  OBSTACLES
 // ═══════════════════════════════════════════════════════════
-function spawnObstacles() {
-  gameState.obstacles = [];
-  
-  // Enemy obstacles
-  for (let i = 0; i < configs.obstacles.enemy.count; i++) {
-    const geom = new THREE.SphereGeometry(configs.obstacles.enemy.size * 0.5);
-    const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.enemy.color });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    scene.add(mesh);
-    gameState.obstacles.push({ mesh, type: 'enemy', home: x, homeY: y, bobTime: Math.random() * Math.PI * 2 });
-  }
-  
-  // Danger obstacles
-  for (let i = 0; i < configs.obstacles.danger.count; i++) {
-    const geom = new THREE.ConeGeometry(0.4, 1, 4);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff4400, emissiveIntensity: 0.3 });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    mesh.rotation.z = Math.random() * Math.PI * 2;
-    scene.add(mesh);
-    gameState.obstacles.push({ mesh, type: 'danger', pulseTime: Math.random() * Math.PI * 2, falling: false, fallVel: 0 });
-  }
-  
-  // Friendly obstacles
-  for (let i = 0; i < configs.obstacles.friendly.count; i++) {
-    const geom = new THREE.OctahedronGeometry(0.5);
-    const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.friendly.color, emissive: configs.obstacles.friendly.color, emissiveIntensity: 0.2 });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    scene.add(mesh);
-    gameState.obstacles.push({ mesh, type: 'friendly', homeY: y, floatTime: Math.random() * Math.PI * 2, collected: false });
-  }
-  
-  // Blocking obstacles
-  for (let i = 0; i < configs.obstacles.blocking.count; i++) {
-    const geom = new THREE.BoxGeometry(configs.obstacles.blocking.size, configs.obstacles.blocking.size, configs.obstacles.blocking.size);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6688aa });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    scene.add(mesh);
-    
-    if (configs.obstacles.blocking.lightEffect) {
-      const light = new THREE.PointLight(configs.obstacles.blocking.lightColor, configs.obstacles.blocking.lightIntensity, 5);
-      mesh.add(light);
+function addObstacleBatch(yMin, yMax) {
+  const rY = () => yMin + Math.random() * (yMax - yMin);
+  const rX = () => -3 + Math.random() * 6;
+
+  // Enemy (side-to-side)
+  if (configs.obstacles.enemy.enabled) {
+    for (let i = 0; i < configs.obstacles.enemy.count; i++) {
+      const geom = new THREE.SphereGeometry(configs.obstacles.enemy.size * 0.5);
+      const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.enemy.color });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'enemy', home: x, homeY: y, bobTime: Math.random() * Math.PI * 2 });
     }
-    gameState.obstacles.push({ mesh, type: 'blocking', pulseTime: Math.random() * Math.PI * 2 });
   }
-  
-  // Lighting obstacles
-  for (let i = 0; i < configs.obstacles.lighting.count; i++) {
-    const geom = new THREE.SphereGeometry(0.3);
-    const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.lighting.color, emissive: configs.obstacles.lighting.color, emissiveIntensity: 0.8 });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    scene.add(mesh);
-    
-    const light = new THREE.PointLight(configs.obstacles.lighting.color, configs.obstacles.lighting.intensity, configs.obstacles.lighting.range);
-    mesh.add(light);
-    gameState.obstacles.push({ mesh, type: 'lighting', light, pulseTime: Math.random() * Math.PI * 2 });
+
+  // Falling obstacles (enemy sub-type)
+  if (configs.obstacles.enemy.falling.enabled) {
+    const fcfg = configs.obstacles.enemy.falling;
+    for (let i = 0; i < fcfg.count; i++) {
+      const geom = new THREE.DodecahedronGeometry(fcfg.size, 0);
+      const mat = new THREE.MeshStandardMaterial({ color: fcfg.color, roughness: 0.8 });
+      const mesh = new THREE.Mesh(geom, mat);
+      const x = rX();
+      const startY = yMax + fcfg.resetAbove * 0.5;
+      mesh.position.set(x, startY, 0);
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'falling', fallVel: 0, startX: x });
+    }
   }
-  
+
+  // Danger obstacles
+  if (configs.obstacles.danger.enabled) {
+    for (let i = 0; i < configs.obstacles.danger.count; i++) {
+      const geom = new THREE.ConeGeometry(0.4, 1, 4);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff4400, emissiveIntensity: 0.3 });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      mesh.rotation.z = Math.random() * Math.PI * 2;
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'danger', pulseTime: Math.random() * Math.PI * 2, falling: false, fallVel: 0 });
+    }
+  }
+
+  // Friendly obstacles
+  if (configs.obstacles.friendly.enabled) {
+    for (let i = 0; i < configs.obstacles.friendly.count; i++) {
+      const geom = new THREE.OctahedronGeometry(0.5);
+      const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.friendly.color, emissive: configs.obstacles.friendly.color, emissiveIntensity: 0.2 });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'friendly', homeY: y, floatTime: Math.random() * Math.PI * 2, collected: false });
+    }
+  }
+
+  // Blocking obstacles
+  if (configs.obstacles.blocking.enabled) {
+    for (let i = 0; i < configs.obstacles.blocking.count; i++) {
+      const geom = new THREE.BoxGeometry(configs.obstacles.blocking.size, configs.obstacles.blocking.size, configs.obstacles.blocking.size);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x6688aa });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      if (configs.obstacles.blocking.lightEffect) {
+        const light = new THREE.PointLight(configs.obstacles.blocking.lightColor, configs.obstacles.blocking.lightIntensity, 5);
+        mesh.add(light);
+      }
+      gameState.obstacles.push({ mesh, type: 'blocking', pulseTime: Math.random() * Math.PI * 2 });
+    }
+  }
+
+  // Lighting obstacles (coins or orbs)
+  if (configs.obstacles.lighting.enabled) {
+    for (let i = 0; i < configs.obstacles.lighting.count; i++) {
+      const lcfg = configs.obstacles.lighting;
+      const isCoin = lcfg.itemType === 'coin';
+      let mesh;
+      if (isCoin) {
+        const geom = new THREE.CylinderGeometry(0.4, 0.4, 0.15, 32);
+        const mat = new THREE.MeshStandardMaterial({
+          color: lcfg.coin.color, emissive: lcfg.coin.color, emissiveIntensity: 0.3,
+          metalness: lcfg.coin.metalness, roughness: lcfg.coin.roughness
+        });
+        mesh = new THREE.Mesh(geom, mat);
+        mesh.rotation.x = 0.5;
+      } else {
+        const geom = new THREE.SphereGeometry(0.35, 16, 16);
+        const mat = new THREE.MeshStandardMaterial({
+          color: lcfg.orb.color, emissive: lcfg.orb.color,
+          emissiveIntensity: lcfg.orb.emissiveIntensity, transparent: true, opacity: 0.9
+        });
+        mesh = new THREE.Mesh(geom, mat);
+      }
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      const lightColor = isCoin ? lcfg.coin.color : lcfg.orb.color;
+      const light = new THREE.PointLight(lightColor, lcfg.intensity, lcfg.range);
+      mesh.add(light);
+      gameState.obstacles.push({
+        mesh, type: 'lighting', light,
+        pulseTime: Math.random() * Math.PI * 2,
+        revolveTime: Math.random() * Math.PI * 2,
+        throbTime: Math.random() * Math.PI * 2,
+        collected: false, homeY: y, isCoin
+      });
+    }
+  }
+
   // Movable obstacles (horizontal platformers)
-  for (let i = 0; i < configs.obstacles.movable.count; i++) {
-    const geom = new THREE.BoxGeometry(configs.obstacles.movable.size * 2, configs.obstacles.movable.size * 0.5, configs.obstacles.movable.size);
-    const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.movable.color });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
-    mesh.position.set(x, y, 0);
-    scene.add(mesh);
-    gameState.obstacles.push({ mesh, type: 'movable', home: x, range: configs.obstacles.movable.horizontalRange, direction: 1, time: 0 });
+  if (configs.obstacles.movable.enabled) {
+    for (let i = 0; i < configs.obstacles.movable.count; i++) {
+      const geom = new THREE.BoxGeometry(configs.obstacles.movable.size * 2, configs.obstacles.movable.size * 0.5, configs.obstacles.movable.size);
+      const mat = new THREE.MeshStandardMaterial({ color: configs.obstacles.movable.color });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'movable', home: x, range: configs.obstacles.movable.horizontalRange, direction: 1, time: 0 });
+    }
   }
-  
+
   // Mystic obstacles (surprise - phasing in and out)
-  for (let i = 0; i < configs.obstacles.mystic.count; i++) {
-    const geom = new THREE.TorusGeometry(0.4, 0.15, 16, 32);
-    const mat = new THREE.MeshStandardMaterial({ 
-      color: configs.obstacles.mystic.color, 
-      emissive: configs.obstacles.mystic.color, 
-      emissiveIntensity: 0.5,
-      transparent: true,
-      opacity: 1
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    const y = 5 + Math.random() * 30;
-    const x = -3 + Math.random() * 6;
+  if (configs.obstacles.mystic.enabled) {
+    for (let i = 0; i < configs.obstacles.mystic.count; i++) {
+      const geom = new THREE.TorusGeometry(0.4, 0.15, 16, 32);
+      const mat = new THREE.MeshStandardMaterial({
+        color: configs.obstacles.mystic.color, emissive: configs.obstacles.mystic.color,
+        emissiveIntensity: 0.5, transparent: true, opacity: 1
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      const y = rY(); const x = rX();
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      gameState.obstacles.push({ mesh, type: 'mystic', phaseTime: 0, visible: true, collected: false });
+    }
+  }
+}
+
+function spawnObstacles() {
+  gameState.obstacles.forEach(obs => scene.remove(obs.mesh));
+  gameState.obstacles = [];
+  addObstacleBatch(5, 35);
+}
+
+function respawnLightingObstacles() {
+  // Remove existing lighting obstacles, re-create with current itemType geometry
+  gameState.obstacles = gameState.obstacles.filter(obs => {
+    if (obs.type === 'lighting') { scene.remove(obs.mesh); return false; }
+    return true;
+  });
+  const playerY = gameState.player ? gameState.player.mesh.position.y : 15;
+  const yMin = Math.max(5, playerY - 5);
+  const lcfg = configs.obstacles.lighting;
+  const rY = () => yMin + Math.random() * 25;
+  const rX = () => -3 + Math.random() * 6;
+  for (let i = 0; i < lcfg.count; i++) {
+    const isCoin = lcfg.itemType === 'coin';
+    let mesh;
+    if (isCoin) {
+      const geom = new THREE.CylinderGeometry(0.4, 0.4, 0.15, 32);
+      const mat = new THREE.MeshStandardMaterial({
+        color: lcfg.coin.color, emissive: lcfg.coin.color, emissiveIntensity: 0.3,
+        metalness: lcfg.coin.metalness, roughness: lcfg.coin.roughness
+      });
+      mesh = new THREE.Mesh(geom, mat);
+      mesh.rotation.x = 0.5;
+    } else {
+      const geom = new THREE.SphereGeometry(0.35, 16, 16);
+      const mat = new THREE.MeshStandardMaterial({
+        color: lcfg.orb.color, emissive: lcfg.orb.color,
+        emissiveIntensity: lcfg.orb.emissiveIntensity, transparent: true, opacity: 0.9
+      });
+      mesh = new THREE.Mesh(geom, mat);
+    }
+    const y = rY(); const x = rX();
     mesh.position.set(x, y, 0);
     scene.add(mesh);
-    gameState.obstacles.push({ mesh, type: 'mystic', phaseTime: 0, visible: true, collected: false });
+    const lightColor = isCoin ? lcfg.coin.color : lcfg.orb.color;
+    const light = new THREE.PointLight(lightColor, lcfg.intensity, lcfg.range);
+    mesh.add(light);
+    gameState.obstacles.push({
+      mesh, type: 'lighting', light,
+      pulseTime: Math.random() * Math.PI * 2,
+      revolveTime: Math.random() * Math.PI * 2,
+      throbTime: Math.random() * Math.PI * 2,
+      collected: false, homeY: y, isCoin
+    });
   }
 }
 
@@ -1120,20 +1487,99 @@ function updateParticles(dt) {
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('keydown', e => {
   gameState.keys[e.code] = true;
-  
+
   if (e.code === 'KeyP') {
     panelOpen = !panelOpen;
     panel.classList.toggle('open', panelOpen);
     hudEl.style.left = panelOpen ? '360px' : '20px';
   }
-  
-  // Latch/De-latch
+
+  // Space while latched: de-latch first so jump fires this frame
+  if (e.code === 'Space' && gameState.isLatched) {
+    gameState.isLatched = false;
+    gameState.keys._spaceHeld = false;
+  }
+
+  // Shift+Down: drop through platform
+  if (e.code === 'ArrowDown' &&
+      (gameState.keys.ShiftLeft || gameState.keys.ShiftRight) &&
+      gameState.isGrounded && gameState.player) {
+    gameState.dropThrough = 0.3;
+    gameState.player.velocity.y = -4;
+  }
+
+  // Latch/De-latch — only latch when actually touching a wall
+  // (skip if Shift+Down drop-through was triggered)
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-    if (configs.climbStructure.latching.enabled) {
-      gameState.isLatched = !gameState.isLatched;
-      if (gameState.isLatched && configs.fx.latchFX.enabled) {
-        spawnLatchFX();
+    if (gameState.keys.ArrowDown && gameState.isGrounded && gameState.player) {
+      // Shift+Down combo: drop through — do not latch
+      gameState.dropThrough = 0.3;
+      gameState.player.velocity.y = -4;
+    } else if (configs.climbStructure.latching.enabled) {
+      if (gameState.isLatched) {
+        gameState.isLatched = false;
+      } else {
+        const nearWall = gameState.wallContact !== null ||
+                          (gameState.player && checkWallProximity() !== null);
+        if (nearWall) {
+          gameState.isLatched = true;
+          if (configs.fx.latchFX.enabled) spawnLatchFX();
+        }
       }
+    }
+  }
+
+  // C key: switch wall side (inner ↔ outer face)
+  if (e.code === 'KeyC' && gameState.player && !gameState.sideTransition) {
+    if (!configs.climbStructure.wallSwitch.enabled) return;
+    const wsc = configs.climbStructure.wallSwitch;
+    const p = gameState.player;
+    const cfg = configs.player;
+    const wt = configs.climbStructure.generation.wallThickness;
+    const halfW = cfg.size.baseWidth * 0.5 * p.mesh.scale.x;
+
+    if (gameState.wallSide === 'inner' && gameState.wallContact !== null) {
+      // Switch to outer face of the wall we're touching
+      const contactSide = gameState.wallContact;
+      let wallX = null;
+      for (const seg of gameState.climbSegments) {
+        const found = seg.walls.find(w => w.side === contactSide);
+        if (found) { wallX = found.x; break; }
+      }
+      if (wallX === null) return;
+
+      // Target x on outer face
+      const endX = contactSide === 'left'
+        ? wallX - wt / 2 - halfW     // left of left wall
+        : wallX + wt / 2 + halfW;    // right of right wall
+
+      const foreshorten = wsc.foreshortRightToLeft;
+      const duration = wsc.animationType === 1 ? 0.001 : (1 / wsc.changeSpeed);
+      gameState.sideTransition = {
+        progress: 0, duration, toOuter: true, wallSide: contactSide,
+        startX: p.mesh.position.x, endX, foreshorten
+      };
+
+    } else if (gameState.wallSide === 'outer' && gameState.outerWall !== null) {
+      // Switch back to inner face
+      const contactSide = gameState.outerWall;
+      let wallX = null;
+      for (const seg of gameState.climbSegments) {
+        const found = seg.walls.find(w => w.side === contactSide);
+        if (found) { wallX = found.x; break; }
+      }
+      if (wallX === null) return;
+
+      const endX = contactSide === 'left'
+        ? wallX + wt / 2 + halfW    // right of left wall (inner)
+        : wallX - wt / 2 - halfW;   // left of right wall (inner)
+
+      const foreshorten = wsc.foreshortLeftToRight;
+      const duration = wsc.animationType === 1 ? 0.001 : (1 / wsc.changeSpeed);
+      gameState.sideTransition = {
+        progress: 0, duration, toOuter: false, wallSide: null,
+        startX: p.mesh.position.x, endX, foreshorten
+      };
     }
   }
 });
@@ -1156,12 +1602,221 @@ function spawnLatchFX() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  COLLISION HELPERS
+// ═══════════════════════════════════════════════════════════
+function checkWallProximity() {
+  const p = gameState.player;
+  const cfg = configs.player;
+  const latchRange = configs.climbStructure.latching.latchRange;
+  const wallThickness = configs.climbStructure.generation.wallThickness;
+  const halfW = cfg.size.baseWidth * 0.5 * p.mesh.scale.x;
+  const halfH = cfg.size.baseHeight * 0.5 * p.mesh.scale.y;
+  const px = p.mesh.position.x;
+  const py = p.mesh.position.y;
+  const isOuter = gameState.wallSide === 'outer';
+  const outerWall = gameState.outerWall;
+
+  for (const seg of gameState.climbSegments) {
+    if (py + halfH < seg.yStart || py - halfH > seg.yStart + seg.segHeight) continue;
+    for (const wall of seg.walls) {
+      const wallRight = wall.x + wallThickness / 2;
+      const wallLeft  = wall.x - wallThickness / 2;
+      if (wall.side === 'left') {
+        if (isOuter && outerWall === 'left') {
+          // Outer side of left wall: player is to its left, check right edge near left face
+          if (px + halfW >= wallLeft - latchRange) return 'left';
+        } else if (!isOuter) {
+          if (px - halfW <= wallRight + latchRange) return 'left';
+        }
+      } else {
+        if (isOuter && outerWall === 'right') {
+          // Outer side of right wall: player is to its right, check left edge near right face
+          if (px - halfW <= wallRight + latchRange) return 'right';
+        } else if (!isOuter) {
+          if (px + halfW >= wallLeft - latchRange) return 'right';
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function resolveCollisions() {
+  const p = gameState.player;
+  const cfg = configs.player;
+  const wallThickness = configs.climbStructure.generation.wallThickness;
+  const isOuter = gameState.wallSide === 'outer';
+  const outerWall = gameState.outerWall;
+
+  for (const seg of gameState.climbSegments) {
+    const halfW = () => cfg.size.baseWidth  * 0.5 * p.mesh.scale.x;
+    const halfH = () => cfg.size.baseHeight * 0.5 * p.mesh.scale.y;
+
+    // Quick vertical cull
+    if (p.mesh.position.y + halfH() < seg.yStart - 0.5 ||
+        p.mesh.position.y - halfH() > seg.yStart + seg.segHeight + 0.5) continue;
+
+    // ── Wall collisions (handles inner and outer face) ──
+    for (const wall of seg.walls) {
+      if (gameState.sideTransition) continue; // transition controls x
+
+      const wallMidY = seg.yStart + seg.segHeight / 2;
+      const wallHalfH = seg.segHeight / 2;
+      const pBottom = p.mesh.position.y - halfH();
+      const pTop    = p.mesh.position.y + halfH();
+      if (pBottom >= wallMidY + wallHalfH || pTop <= wallMidY - wallHalfH) continue;
+
+      const isThisOuterWall = isOuter && outerWall === wall.side;
+
+      if (wall.side === 'left') {
+        if (isThisOuterWall) {
+          // Outer-left: keep player left of left face
+          const wallLeft = wall.x - wallThickness / 2;
+          const pRight = p.mesh.position.x + halfW();
+          if (pRight > wallLeft) {
+            p.mesh.position.x = wallLeft - halfW();
+            if (p.velocity.x > 0) p.velocity.x = 0;
+          }
+        } else {
+          // Inner-left: keep player right of right face
+          const wallRight = wall.x + wallThickness / 2;
+          const pLeft = p.mesh.position.x - halfW();
+          if (pLeft < wallRight) {
+            p.mesh.position.x = wallRight + halfW();
+            if (p.velocity.x < 0) p.velocity.x = 0;
+          }
+        }
+      } else {
+        if (isThisOuterWall) {
+          // Outer-right: keep player right of right face
+          const wallRight = wall.x + wallThickness / 2;
+          const pLeft = p.mesh.position.x - halfW();
+          if (pLeft < wallRight) {
+            p.mesh.position.x = wallRight + halfW();
+            if (p.velocity.x < 0) p.velocity.x = 0;
+          }
+        } else {
+          // Inner-right: keep player left of left face
+          const wallLeft = wall.x - wallThickness / 2;
+          const pRight = p.mesh.position.x + halfW();
+          if (pRight > wallLeft) {
+            p.mesh.position.x = wallLeft - halfW();
+            if (p.velocity.x > 0) p.velocity.x = 0;
+          }
+        }
+      }
+    }
+
+    // ── Platform collisions (one-way, land from above; skipped during drop-through) ──
+    if (p.velocity.y <= 0.01 && gameState.dropThrough <= 0) {
+      for (const plat of seg.platforms) {
+        const pLeft  = p.mesh.position.x - halfW();
+        const pRight = p.mesh.position.x + halfW();
+        const pBottom = p.mesh.position.y - halfH();
+        const platTop = plat.y + 0.15;
+        if (pRight <= plat.x || pLeft >= plat.x + plat.width) continue;
+        if (pBottom <= platTop && pBottom >= plat.y - 0.55) {
+          p.mesh.position.y = platTop + halfH();
+          p.velocity.y = 0;
+          gameState.isGrounded = true;
+        }
+      }
+
+      // ── Ledge collisions (one-way, land from above; skipped during drop-through) ──
+      for (const ledge of seg.ledges) {
+        const pLeft  = p.mesh.position.x - halfW();
+        const pRight = p.mesh.position.x + halfW();
+        const pBottom = p.mesh.position.y - halfH();
+        const ledgeTop = ledge.y + 0.1;
+        if (pRight <= ledge.x || pLeft >= ledge.x + ledge.width) continue;
+        if (pBottom <= ledgeTop && pBottom >= ledge.y - 0.45) {
+          p.mesh.position.y = ledgeTop + halfH();
+          p.velocity.y = 0;
+          gameState.isGrounded = true;
+        }
+      }
+    }
+  }
+
+  // Ground floor — hard stop at y = 0
+  const floorHalfH = cfg.size.baseHeight * 0.5 * p.mesh.scale.y;
+  if (p.mesh.position.y - floorHalfH < 0 && p.velocity.y <= 0) {
+    p.mesh.position.y = floorHalfH;
+    p.velocity.y = 0;
+    gameState.isGrounded = true;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WALL SIDE TRANSITION
+// ═══════════════════════════════════════════════════════════
+function updateWallSideTransition(dt) {
+  const t = gameState.sideTransition;
+  if (!t) return;
+
+  const wsc = configs.climbStructure.wallSwitch;
+  const p   = gameState.player;
+  const cfg = configs.player;
+
+  t.progress = Math.min(1, t.progress + dt * wsc.changeSpeed);
+
+  // Ease in-out cubic
+  const raw = t.progress;
+  const ease = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2,3)/2;
+
+  if (wsc.animationType === 0) {
+    // Slide: tween x, foreshorten mid-path if configured
+    p.mesh.position.x = t.startX + (t.endX - t.startX) * ease;
+    if (t.foreshorten) {
+      const mid = Math.sin(raw * Math.PI);            // peaks at progress=0.5
+      p.mesh.scale.x = 1 - (1 - wsc.foreshortScale) * mid;
+      p.mesh.position.z = -0.7 * mid;                // pass behind wall mid-way
+    }
+
+  } else if (wsc.animationType === 1) {
+    // Instant: snap immediately
+    p.mesh.position.x = t.endX;
+    t.progress = 1;
+
+  } else if (wsc.animationType === 2) {
+    // Flip: scale to 0, reposition, scale back
+    if (raw < 0.5) {
+      p.mesh.scale.x = 1 - raw * 2;
+      if (t.foreshorten) p.mesh.position.z = -0.7 * (raw * 2);
+    } else {
+      p.mesh.position.x = t.endX;
+      p.mesh.scale.x = (raw - 0.5) * 2;
+      if (t.foreshorten) p.mesh.position.z = -0.7 * (1 - (raw - 0.5) * 2);
+    }
+  }
+
+  if (t.progress >= 1) {
+    // Finalise
+    p.mesh.position.x = t.endX;
+    p.mesh.position.z = 0;
+    const staminaRatio = gameState.stamina / cfg.stamina.maxStamina;
+    const ws = 1 + (staminaRatio - 0.5) * cfg.size.staminaWidthFactor;
+    p.mesh.scale.x = Math.max(cfg.size.minScale, Math.min(cfg.size.maxScale, ws));
+
+    gameState.wallSide  = t.toOuter ? 'outer' : 'inner';
+    gameState.outerWall = t.toOuter ? t.wallSide : null;
+    gameState.sideTransition = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  PLAYER UPDATE
 // ═══════════════════════════════════════════════════════════
 function updatePlayer(dt) {
   const p = gameState.player;
   const cfg = configs.player;
-  
+
+  // Tick drop-through timer
+  if (gameState.dropThrough > 0) gameState.dropThrough -= dt;
+
+  // Animate wall-side transition (takes priority over x input)
+  updateWallSideTransition(dt);
+
   // Apply rain effects
   let speedMult = gameState.speedBoost;
   let staminaMult = 1;
@@ -1169,65 +1824,91 @@ function updatePlayer(dt) {
     speedMult *= configs.atmosphere.rain.playerSpeedEffect;
     staminaMult *= configs.atmosphere.rain.playerStaminaEffect;
   }
-  
-  // Horizontal movement
-  if (!gameState.isLatched) {
-    const moveSpeed = cfg.movement.speed * speedMult;
-    if (gameState.keys.ArrowLeft) p.velocity.x -= moveSpeed * cfg.movement.acceleration;
-    if (gameState.keys.ArrowRight) p.velocity.x += moveSpeed * cfg.movement.acceleration;
+
+  // Determine wall contact before applying forces
+  gameState.wallContact = checkWallProximity();
+
+  // Horizontal movement (blocked during side transition — transition owns x)
+  if (!gameState.sideTransition) {
+    if (!gameState.isLatched) {
+      const moveSpeed = cfg.movement.speed * speedMult;
+      if (gameState.keys.ArrowLeft)  p.velocity.x -= moveSpeed * cfg.movement.acceleration;
+      if (gameState.keys.ArrowRight) p.velocity.x += moveSpeed * cfg.movement.acceleration;
+    } else {
+      p.velocity.x *= 0.8;
+    }
   } else {
-    p.velocity.x *= 0.8;
+    p.velocity.x = 0;
   }
-  
-  // Vertical movement - climbing
+
+  // Vertical movement — climb mode or jetpack
   gameState.isClimbing = false;
+  const climbMode = configs.climbStructure.climbMode;
+  const canClimb = climbMode === 'jetpack' || gameState.wallContact !== null;
+
   if (gameState.keys.ArrowUp && !gameState.isLatched) {
-    p.velocity.y = cfg.movement.climbSpeed * speedMult;
-    gameState.isClimbing = true;
-    gameState.stamina -= cfg.stamina.drainRate * cfg.stamina.climbDrainMultiplier * dt * staminaMult;
+    if (canClimb) {
+      p.velocity.y = cfg.movement.climbSpeed * speedMult;
+      gameState.isClimbing = true;
+      gameState.stamina -= cfg.stamina.drainRate * cfg.stamina.climbDrainMultiplier * dt * staminaMult;
+    } else {
+      // Climbing mode, not on wall — gravity still applies
+      p.velocity.y += cfg.movement.gravity * dt;
+    }
   } else if (!gameState.isLatched) {
     p.velocity.y += cfg.movement.gravity * dt;
   } else {
     p.velocity.y = 0;
     gameState.stamina -= configs.climbStructure.latching.latchStaminaDrain * dt;
   }
-  
-  // Jump
-  if (gameState.keys.Space && !gameState.keys._spaceHeld && !gameState.isLatched) {
+
+  // Jump — from ground OR from wall (wall jump)
+  const canJump = (gameState.isGrounded || gameState.wallContact !== null) &&
+                  !gameState.isLatched && !gameState.keys._spaceHeld;
+  if (gameState.keys.Space && canJump) {
     p.velocity.y = cfg.movement.jumpHeight;
+    // Wall jump: add horizontal kick away from the wall
+    if (!gameState.isGrounded && gameState.wallContact !== null) {
+      const kick = cfg.movement.jumpHeight * 0.55;
+      p.velocity.x = gameState.wallContact === 'left' ? kick : -kick;
+    }
     gameState.keys._spaceHeld = true;
     gameState.stamina -= cfg.stamina.jumpDrainAmount;
     if (configs.fx.jumpFX.enabled) spawnJumpFX();
   }
   if (!gameState.keys.Space) gameState.keys._spaceHeld = false;
-  
+
   // Stamina reload
   if (!gameState.isClimbing && !gameState.isLatched) {
     gameState.stamina = Math.min(cfg.stamina.maxStamina, gameState.stamina + (cfg.stamina.maxStamina / cfg.stamina.reloadTime) * dt);
   }
   gameState.stamina = Math.max(0, gameState.stamina);
-  
-  // Clamp stamina to zero results in slower climbing/no climbing
+
+  // Out-of-stamina blocks upward climb
   if (gameState.stamina <= 0 && gameState.isClimbing) {
     p.velocity.y = Math.min(p.velocity.y, 0);
   }
-  
+
   // Apply velocity
   p.velocity.x *= 0.85;
   p.mesh.position.x += p.velocity.x * dt;
   p.mesh.position.y += p.velocity.y * dt;
-  
-  // Clamp position to walls
-  const wallBounds = 8;
-  p.mesh.position.x = Math.max(-wallBounds, Math.min(wallBounds, p.mesh.position.x));
-  
-  // Ground collision (basic)
+
+  // Reset grounded before collision resolution
+  gameState.isGrounded = false;
+
+  // Structural collision (platforms, ledges, walls)
+  resolveCollisions();
+
+  // Safety bounds (wider than any generated wall)
+  const safetyBounds = 20;
+  p.mesh.position.x = Math.max(-safetyBounds, Math.min(safetyBounds, p.mesh.position.x));
+
+  // Ground floor
   if (p.mesh.position.y < 1) {
     p.mesh.position.y = 1;
     p.velocity.y = 0;
     gameState.isGrounded = true;
-  } else {
-    gameState.isGrounded = false;
   }
   
   // Update size based on stamina
@@ -1307,14 +1988,16 @@ function updateObstacles(dt) {
   
   gameState.obstacles.forEach(obs => {
     if (obs.type === 'enemy') {
+      obs.mesh.visible = configs.obstacles.enemy.enabled;
+      if (!configs.obstacles.enemy.enabled) return;
       // Bob and patrol
       obs.bobTime += dt * configs.obstacles.enemy.bobSpeed;
       const bobY = Math.sin(obs.bobTime) * configs.obstacles.enemy.bobHeight;
       obs.mesh.position.y = obs.homeY + bobY;
-      
+
       const patrol = Math.sin(gameState.time * configs.obstacles.enemy.speed * 0.5) * configs.obstacles.enemy.patrolRange;
       obs.mesh.position.x = obs.home + patrol;
-      
+
       // Collision with player
       if (obs.mesh.position.distanceTo(p) < 1 && gameState.player.damageCooldown <= 0) {
         gameState.stamina -= configs.obstacles.enemy.staminaDrain;
@@ -1324,10 +2007,39 @@ function updateObstacles(dt) {
         if (configs.fx.damageFX.enabled) spawnDamageFX();
       }
     }
+
+    if (obs.type === 'falling') {
+      const fcfg = configs.obstacles.enemy.falling;
+      obs.mesh.visible = fcfg.enabled;
+      if (!fcfg.enabled) return;
+      // Fall with gravity
+      obs.fallVel -= fcfg.speed * dt;
+      obs.mesh.position.y += obs.fallVel * dt;
+      // Tumble
+      obs.mesh.rotation.x += dt * 1.8;
+      obs.mesh.rotation.z += dt * 1.2;
+      // Reset when far below player
+      if (obs.mesh.position.y < gameState.player.mesh.position.y - 8) {
+        obs.mesh.position.x = gameState.player.mesh.position.x + (Math.random() - 0.5) * 6;
+        obs.mesh.position.y = gameState.player.mesh.position.y + fcfg.resetAbove;
+        obs.fallVel = 0;
+      }
+      // Collision with player
+      if (obs.mesh.position.distanceTo(p) < 0.9 && gameState.player.damageCooldown <= 0) {
+        gameState.stamina -= fcfg.staminaDrain;
+        gameState.health -= fcfg.damage;
+        gameState.player.damageCooldown = configs.player.health.damageCooldown;
+        gameState.player.hurtFlash = configs.player.health.hurtFlashDuration;
+        if (configs.fx.damageFX.enabled) spawnDamageFX();
+        obs.fallVel = fcfg.speed * 0.5; // bounce off player upward
+        obs.mesh.position.y = gameState.player.mesh.position.y + fcfg.resetAbove;
+      }
+    }
     
     if (obs.type === 'danger') {
-      // Pulse effect
-      obs.pulseTime += dt * configs.obstacles.danger.pulseSpeed;
+      obs.mesh.visible = configs.obstacles.danger.enabled;
+      if (!configs.obstacles.danger.enabled) return;
+      // Pulse effect += dt * configs.obstacles.danger.pulseSpeed;
       const pulse = 0.5 + Math.sin(obs.pulseTime) * 0.5;
       obs.mesh.material.emissiveIntensity = configs.obstacles.danger.glowIntensity * pulse;
       obs.mesh.rotation.z += dt;
@@ -1353,8 +2065,9 @@ function updateObstacles(dt) {
     }
     
     if (obs.type === 'friendly' && !obs.collected) {
-      // Float animation
-      obs.floatTime += dt * configs.obstacles.friendly.floatSpeed;
+      obs.mesh.visible = configs.obstacles.friendly.enabled;
+      if (!configs.obstacles.friendly.enabled) return;
+      // Float animation += dt * configs.obstacles.friendly.floatSpeed;
       const floatY = Math.sin(obs.floatTime) * configs.obstacles.friendly.floatHeight;
       obs.mesh.position.y = obs.homeY + floatY;
       obs.mesh.rotation.y += dt;
@@ -1375,6 +2088,8 @@ function updateObstacles(dt) {
     }
     
     if (obs.type === 'blocking') {
+      obs.mesh.visible = configs.obstacles.blocking.enabled;
+      if (!configs.obstacles.blocking.enabled) return;
       // Light pulse
       obs.pulseTime += dt * configs.obstacles.blocking.lightPulseSpeed;
       const pulse = 0.7 + Math.sin(obs.pulseTime) * 0.3;
@@ -1384,28 +2099,99 @@ function updateObstacles(dt) {
     }
     
     if (obs.type === 'lighting') {
-      // Flicker effect
-      obs.pulseTime += dt * configs.obstacles.lighting.pulseSpeed;
-      const pulse = 0.7 + Math.sin(obs.pulseTime) * configs.obstacles.lighting.pulseDelta;
-      obs.light.intensity = configs.obstacles.lighting.intensity * pulse;
-      
-      if (configs.obstacles.lighting.flickerEnabled) {
-        if (Math.random() < dt * configs.obstacles.lighting.flickerSpeed) {
+      obs.mesh.visible = configs.obstacles.lighting.enabled && !obs.collected;
+      if (!configs.obstacles.lighting.enabled || obs.collected) return;
+      const lcfg = configs.obstacles.lighting;
+
+      // Light pulse + flicker
+      obs.pulseTime += dt * lcfg.pulseSpeed;
+      const pulse = 0.7 + Math.sin(obs.pulseTime) * lcfg.pulseDelta;
+      obs.light.intensity = lcfg.intensity * pulse;
+      if (lcfg.flickerEnabled) {
+        if (Math.random() < dt * lcfg.flickerSpeed) {
           obs.light.intensity *= Math.random() * 0.5 + 0.5;
+        }
+      }
+
+      if (obs.isCoin) {
+        // Coin: revolve (spin on local Y/Z axes)
+        if (lcfg.coin.revolveEnabled) {
+          obs.revolveTime += dt * lcfg.coin.revolveSpeed;
+          obs.mesh.rotation.z = obs.revolveTime; // spin face (visible from camera angle)
+        }
+      } else {
+        // Orb: scale throb
+        if (lcfg.orb.throbEnabled) {
+          obs.throbTime += dt * lcfg.orb.throbSpeed;
+          const scl = 1 + Math.sin(obs.throbTime) * lcfg.orb.throbRange;
+          obs.mesh.scale.setScalar(scl);
+        }
+      }
+
+      // Collection collision
+      const dist = obs.mesh.position.distanceTo(p);
+      if (dist < 0.75) {
+        obs.collected = true;
+        scene.remove(obs.mesh);
+        if (obs.isCoin) {
+          if (lcfg.score.enabled) gameState.score += lcfg.score.perCoin;
+          spawnCoinCollectFX(obs.mesh.position, true, lcfg.coin.collectAnim);
+        } else {
+          gameState.orbsCollected++;
+          spawnCoinCollectFX(obs.mesh.position, false, lcfg.orb.collectAnim);
         }
       }
     }
     
     if (obs.type === 'movable') {
+      obs.mesh.visible = configs.obstacles.movable.enabled;
+      if (!configs.obstacles.movable.enabled) return;
+      // Record previous x to compute carry-delta for rider
+      const prevX = obs.mesh.position.x;
+
       // Horizontal movement
       obs.time += dt * configs.obstacles.movable.horizontalSpeed;
       const offset = Math.sin(obs.time) * obs.range;
       obs.mesh.position.x = obs.home + offset;
+
+      // ── Platform collision with player (no HP/stamina damage) ──
+      const mv = configs.obstacles.movable;
+      const halfObsW = mv.size;          // half of geometry width (size * 2)
+      const halfObsH = mv.size * 0.25;   // half of geometry height (size * 0.5)
+      const obsTop    = obs.mesh.position.y + halfObsH;
+      const obsBottom = obs.mesh.position.y - halfObsH;
+      const obsLeft   = obs.mesh.position.x - halfObsW;
+      const obsRight  = obs.mesh.position.x + halfObsW;
+
+      const pl = gameState.player;
+      const pCfg = configs.player;
+      const halfPW = pCfg.size.baseWidth  * 0.5 * pl.mesh.scale.x;
+      const halfPH = pCfg.size.baseHeight * 0.5 * pl.mesh.scale.y;
+      const pLeft   = pl.mesh.position.x - halfPW;
+      const pRight  = pl.mesh.position.x + halfPW;
+      const pBottom = pl.mesh.position.y - halfPH;
+      const pTop    = pl.mesh.position.y + halfPH;
+
+      if (pRight > obsLeft && pLeft < obsRight) {
+        // Land from above: snap to top, carry with platform horizontally
+        if (pl.velocity.y <= 0.01 && pBottom <= obsTop && pBottom >= obsBottom - 0.5) {
+          pl.mesh.position.y = obsTop + halfPH;
+          pl.velocity.y = 0;
+          gameState.isGrounded = true;
+          pl.mesh.position.x += obs.mesh.position.x - prevX; // carry
+        }
+        // Block from below: prevent upward movement into platform bottom
+        if (pl.velocity.y > 0 && pTop >= obsBottom && pTop <= obsTop + 0.4) {
+          pl.mesh.position.y = obsBottom - halfPH;
+          pl.velocity.y = 0;
+        }
+      }
     }
     
     if (obs.type === 'mystic' && !obs.collected) {
-      // Phasing in/out (surprise feature!)
-      obs.phaseTime += dt * configs.obstacles.mystic.phaseSpeed;
+      obs.mesh.visible = configs.obstacles.mystic.enabled;
+      if (!configs.obstacles.mystic.enabled) return;
+      // Phasing in/out (surprise feature!) += dt * configs.obstacles.mystic.phaseSpeed;
       const cycleDuration = configs.obstacles.mystic.visibleDuration + configs.obstacles.mystic.hiddenDuration;
       const cyclePos = obs.phaseTime % cycleDuration;
       
@@ -1467,6 +2253,28 @@ function spawnCollectFX(pos) {
   }
 }
 
+function spawnCoinCollectFX(pos, isCoin, animType) {
+  if (animType === 2) return; // 'None'
+  const color = isCoin ? 0xffd700 : 0x88ccff;
+  const count = animType === 0 ? 8 : 12; // Burst vs Spiral
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const speed = animType === 0 ? 2.5 : 1.8;
+    let vx = Math.cos(angle) * speed;
+    let vy = Math.sin(angle) * speed;
+    if (animType === 1) { // Spiral — add upward drift
+      vy = Math.abs(vy) + 1.5;
+      vx *= 0.6;
+    }
+    spawnParticle(pos.x, pos.y, 'collect', {
+      radius: isCoin ? 0.1 : 0.14,
+      color,
+      velocity: new THREE.Vector2(vx, vy),
+      lifetime: 0.7
+    });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  CAMERA
 // ═══════════════════════════════════════════════════════════
@@ -1501,6 +2309,24 @@ function updateCamera(dt) {
     }
     gameState.nextCheckpoint += checkpointInterval;
   }
+
+  // Obstacle batch spawning — add new obstacles as player climbs
+  const obstacleInterval = configs.climbStructure.generation.segmentHeight * 3;
+  if (camera.position.y >= gameState.nextObstacleSpawnY) {
+    const yBase = gameState.nextObstacleSpawnY + configs.climbStructure.generation.segmentHeight;
+    addObstacleBatch(yBase, yBase + obstacleInterval);
+    gameState.nextObstacleSpawnY += obstacleInterval;
+
+    // Cull obstacles that are far below the player
+    const cullY = gameState.player.mesh.position.y - configs.climbStructure.generation.segmentHeight * 6;
+    gameState.obstacles = gameState.obstacles.filter(obs => {
+      if (obs.mesh.position.y < cullY) {
+        scene.remove(obs.mesh);
+        return false;
+      }
+      return true;
+    });
+  }
   
   // Cleanup old segments far below player (keep performance stable)
   cleanupOldSegments();
@@ -1533,19 +2359,48 @@ function updateHUD() {
   const staminaPercent = (gameState.stamina / configs.player.stamina.maxStamina) * 100;
   document.getElementById('stamina-fill').style.width = staminaPercent + '%';
   document.getElementById('stamina-text').textContent = Math.floor(gameState.stamina);
-  
+
   const healthPercent = (gameState.health / configs.player.health.maxHP) * 100;
   document.getElementById('health-fill').style.width = healthPercent + '%';
   document.getElementById('health-text').textContent = gameState.health;
-  
+
   document.getElementById('altitude-text').textContent = gameState.altitude;
-  
+
   // Stamina warning FX
   if (configs.fx.staminaWarnFX.enabled && staminaPercent < configs.fx.staminaWarnFX.threshold * 100) {
     const pulse = Math.sin(gameState.time * configs.fx.staminaWarnFX.pulseSpeed) * 0.5 + 0.5;
     document.getElementById('stamina-fill').style.boxShadow = `0 0 ${10 + pulse * 10}px ${configs.fx.staminaWarnFX.pulseColor}`;
   } else {
     document.getElementById('stamina-fill').style.boxShadow = 'none';
+  }
+
+  // Score / orb tracker
+  const lcfg = configs.obstacles.lighting;
+  const isCoin = lcfg.itemType === 'coin';
+  const sdCoins = document.getElementById('sd-coins');
+  const sdOrbs  = document.getElementById('sd-orbs');
+  if (lcfg.enabled) {
+    if (isCoin && lcfg.score.enabled) {
+      sdCoins.style.display = 'block';
+      sdOrbs.style.display  = 'none';
+      document.getElementById('score-text').textContent = gameState.score;
+    } else if (!isCoin && lcfg.orb.goalEnabled) {
+      sdCoins.style.display = 'none';
+      sdOrbs.style.display  = 'block';
+      const total = gameState.obstacles.filter(o => o.type === 'lighting').length;
+      document.getElementById('orbs-collected').textContent = gameState.orbsCollected;
+      document.getElementById('orbs-total').textContent = total;
+      const pct = total > 0 ? (gameState.orbsCollected / total) * 100 : 0;
+      document.getElementById('orb-goal-fill').style.width = pct + '%';
+      const completeEl = document.getElementById('orb-complete');
+      completeEl.style.display = (total > 0 && gameState.orbsCollected >= total) ? 'block' : 'none';
+    } else {
+      sdCoins.style.display = 'none';
+      sdOrbs.style.display  = 'none';
+    }
+  } else {
+    sdCoins.style.display = 'none';
+    sdOrbs.style.display  = 'none';
   }
 }
 
@@ -1599,6 +2454,14 @@ async function init() {
   buildPanel();
   
   createPlayer();
+
+  // Ground plane
+  const groundGeom = new THREE.BoxGeometry(24, 0.6, 3);
+  const groundMat = new THREE.MeshStandardMaterial({ color: '#4a6741', roughness: 0.95, metalness: 0 });
+  const groundMesh = new THREE.Mesh(groundGeom, groundMat);
+  groundMesh.position.set(0, -0.3, 0);
+  scene.add(groundMesh);
+
   spawnObstacles();
   createClouds();
   
@@ -1611,6 +2474,7 @@ async function init() {
   
   // Set first checkpoint
   gameState.nextCheckpoint = configs.climbStructure.generation.segmentHeight * 8;
+  gameState.nextObstacleSpawnY = configs.climbStructure.generation.segmentHeight * 11; // first batch after initial y=5..35
   
   gameLoop();
 }

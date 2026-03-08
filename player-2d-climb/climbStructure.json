@@ -42,5 +42,6 @@
     "intensity": 0.3,
     "pulseSpeed": 2
   },
+  "climbMode": "jetpack",
   "exportedAt": null
 }

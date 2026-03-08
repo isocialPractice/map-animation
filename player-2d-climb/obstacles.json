@@ -2,7 +2,8 @@
   "version": "1.0",
   "name": "Obstacles",
   "enemy": {
-    "count": 3,
+    "enabled": true,
+    "count": 1,
     "speed": 2.0,
     "damage": 1,
     "staminaDrain": 35,
@@ -10,10 +11,21 @@
     "color": "#ff4444",
     "patrolRange": 3,
     "bobSpeed": 2,
-    "bobHeight": 0.1
+    "bobHeight": 0.1,
+    "falling": {
+      "enabled": true,
+      "count": 2,
+      "speed": 6.0,
+      "size": 0.55,
+      "color": "#cc5500",
+      "damage": 1,
+      "staminaDrain": 30,
+      "resetAbove": 18
+    }
   },
   "danger": {
-    "count": 4,
+    "enabled": true,
+    "count": 2,
     "damage": 1,
     "staminaDrain": 25,
     "effectRadius": 0.5,
@@ -23,7 +35,8 @@
     "fallSpeed": 8
   },
   "friendly": {
-    "count": 3,
+    "enabled": true,
+    "count": 1,
     "staminaRestore": 30,
     "healthRestore": 1,
     "speedBoost": 1.5,
@@ -34,7 +47,8 @@
     "glowPulse": 3
   },
   "blocking": {
-    "count": 3,
+    "enabled": true,
+    "count": 1,
     "size": 1.5,
     "breakable": false,
     "lightEffect": true,
@@ -43,17 +57,44 @@
     "lightPulseSpeed": 2
   },
   "lighting": {
-    "count": 4,
+    "count": 2,
     "intensity": 0.8,
     "range": 4,
     "color": "#ffeebb",
     "pulseSpeed": 1.5,
     "pulseDelta": 0.3,
     "flickerEnabled": true,
-    "flickerSpeed": 8
+    "flickerSpeed": 8,
+    "enabled": true,
+    "itemType": "coin",
+    "coin": {
+      "color": "#ffd700",
+      "metalness": 0.9,
+      "roughness": 0.1,
+      "revolveEnabled": true,
+      "revolveSpeed": 2.0,
+      "collectAnim": 0,
+      "collectAnimTypes": ["Burst", "Spiral", "None"]
+    },
+    "orb": {
+      "color": "#aaddff",
+      "emissiveIntensity": 0.7,
+      "throbEnabled": true,
+      "throbSpeed": 1.5,
+      "throbRange": 0.12,
+      "glowIntensity": 0.8,
+      "goalEnabled": true,
+      "collectAnim": 0,
+      "collectAnimTypes": ["Burst", "Expand", "None"]
+    },
+    "score": {
+      "enabled": true,
+      "perCoin": 10
+    }
   },
   "movable": {
-    "count": 3,
+    "enabled": true,
+    "count": 1,
     "weight": 1.0,
     "pushSpeed": 3,
     "fallSpeed": 6,
@@ -63,7 +104,8 @@
     "color": "#cc8844"
   },
   "mystic": {
-    "count": 2,
+    "enabled": true,
+    "count": 1,
     "phaseSpeed": 1.5,
     "visibleDuration": 3.0,
     "hiddenDuration": 2.0,
